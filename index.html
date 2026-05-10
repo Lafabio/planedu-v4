@@ -361,6 +361,19 @@ th,td{
   padding:30px;
 }
 
+.comentario{
+
+  padding:18px;
+
+  border:1px solid #E2E8F0;
+
+  border-radius:16px;
+
+  margin-bottom:16px;
+
+  background:#F8FAFC;
+}
+
 </style>
 
 </head>
@@ -525,8 +538,9 @@ th,td{
           Semana atual
         </p>
 
-        <div class="big">
-          18
+        <div class="big"
+        id="totalPlanejamentos">
+          0
         </div>
 
       </div>
@@ -569,7 +583,7 @@ th,td{
 
     </div>
 
-    <!-- PLANEJAMENTO -->
+    <!-- PLANEJAMENTOS -->
 
     <div class="card"
     style="margin-top:30px;">
@@ -637,6 +651,117 @@ th,td{
         </tbody>
 
       </table>
+
+    </div>
+
+    <!-- COMENTÁRIOS -->
+
+    <div class="card"
+    style="margin-top:30px;">
+
+      <h2>
+        💬 Comentários da Coordenação
+      </h2>
+
+      <p style="
+        color:#64748B;
+        margin-top:6px;
+        margin-bottom:24px;
+      ">
+
+        Observações pedagógicas
+
+      </p>
+
+      <div class="comentario">
+
+        <strong>
+          Coordenação Pedagógica
+        </strong>
+
+        <p style="
+          margin-top:10px;
+          line-height:1.6;
+        ">
+
+          Revisar habilidades da turma 201
+          para próxima semana.
+
+        </p>
+
+      </div>
+
+    </div>
+
+    <!-- PERFIL -->
+
+    <div class="card"
+    style="margin-top:30px;">
+
+      <h2>
+        👤 Meu Perfil
+      </h2>
+
+      <p style="
+        color:#64748B;
+        margin-top:6px;
+        margin-bottom:24px;
+      ">
+
+        Configurações pessoais
+
+      </p>
+
+      <div style="
+        display:grid;
+        grid-template-columns:
+        repeat(auto-fit,minmax(280px,1fr));
+        gap:20px;
+      ">
+
+        <div class="field">
+
+          <label>
+            Nome
+          </label>
+
+          <input
+          type="text"
+          id="perfilNome">
+
+        </div>
+
+        <div class="field">
+
+          <label>
+            Disciplina
+          </label>
+
+          <input
+          type="text"
+          id="perfilDisciplina">
+
+        </div>
+
+        <div class="field">
+
+          <label>
+            Horário semanal
+          </label>
+
+          <input
+          type="text"
+          id="perfilHorario">
+
+        </div>
+
+      </div>
+
+      <button onclick="salvarPerfil()">
+
+        💾 Salvar Perfil
+
+      </button>
 
     </div>
 
@@ -938,6 +1063,11 @@ function renderizarPlanejamentos(){
 
     `;
   });
+
+  document.getElementById(
+    'totalPlanejamentos'
+  ).innerText =
+  planejamentos.length;
 }
 
 function limparCampos(){
@@ -957,6 +1087,69 @@ function limparCampos(){
   document.getElementById(
     'conteudo'
   ).value = '';
+}
+
+/* PERFIL */
+
+function salvarPerfil(){
+
+  const nome =
+  document.getElementById(
+    'perfilNome'
+  ).value;
+
+  const disciplina =
+  document.getElementById(
+    'perfilDisciplina'
+  ).value;
+
+  const horario =
+  document.getElementById(
+    'perfilHorario'
+  ).value;
+
+  localStorage.setItem(
+    'perfilNome',
+    nome
+  );
+
+  localStorage.setItem(
+    'perfilDisciplina',
+    disciplina
+  );
+
+  localStorage.setItem(
+    'perfilHorario',
+    horario
+  );
+
+  alert(
+    'Perfil atualizado'
+  );
+}
+
+window.onload = ()=>{
+
+  document.getElementById(
+    'perfilNome'
+  ).value =
+  localStorage.getItem(
+    'perfilNome'
+  ) || '';
+
+  document.getElementById(
+    'perfilDisciplina'
+  ).value =
+  localStorage.getItem(
+    'perfilDisciplina'
+  ) || '';
+
+  document.getElementById(
+    'perfilHorario'
+  ).value =
+  localStorage.getItem(
+    'perfilHorario'
+  ) || '';
 }
 
 </script>
