@@ -47,11 +47,9 @@ body{
   );
 
   min-height:100vh;
-
-  display:flex;
-  align-items:center;
-  justify-content:center;
 }
+
+/* LOGIN */
 
 .container{
 
@@ -67,6 +65,13 @@ body{
   box-shadow:
   0 20px 40px rgba(0,0,0,.15);
 
+  position:absolute;
+
+  top:50%;
+  left:50%;
+
+  transform:
+  translate(-50%,-50%);
 }
 
 .logo{
@@ -121,20 +126,27 @@ body{
   font-size:15px;
 }
 
-.field input:focus{
+.field textarea{
 
-  outline:none;
+  width:100%;
 
-  border-color:var(--brand);
+  height:120px;
+
+  border-radius:14px;
+
+  border:1px solid var(--border);
+
+  padding:16px;
+
+  resize:none;
 }
 
 button{
 
-  width:100%;
-
   border:none;
 
-  background:linear-gradient(
+  background:
+  linear-gradient(
     135deg,
     var(--brand),
     var(--accent)
@@ -142,7 +154,7 @@ button{
 
   color:white;
 
-  padding:16px;
+  padding:14px 18px;
 
   border-radius:14px;
 
@@ -191,18 +203,11 @@ button:hover{
   border:1px solid var(--border);
 }
 
-.demo-item strong{
-
-  display:block;
-
-  margin-bottom:4px;
-}
+/* DASHBOARD */
 
 #dashboard{
 
   display:none;
-
-  width:100%;
 }
 
 .sidebar{
@@ -236,10 +241,6 @@ button:hover{
 }
 
 .menu button{
-
-  background:#F8FAFC;
-
-  color:var(--text);
 
   text-align:left;
 }
@@ -313,6 +314,53 @@ button:hover{
   font-weight:600;
 }
 
+table{
+
+  width:100%;
+
+  border-collapse:collapse;
+}
+
+th,td{
+
+  padding:14px;
+
+  border-bottom:1px solid #E2E8F0;
+
+  text-align:left;
+}
+
+/* MODAL */
+
+#modal{
+
+  position:fixed;
+
+  inset:0;
+
+  background:rgba(0,0,0,.5);
+
+  display:none;
+
+  align-items:center;
+  justify-content:center;
+
+  z-index:999;
+}
+
+.modal-box{
+
+  width:700px;
+
+  max-width:95%;
+
+  background:white;
+
+  border-radius:24px;
+
+  padding:30px;
+}
+
 </style>
 
 </head>
@@ -343,8 +391,7 @@ button:hover{
 
     <input
     type="email"
-    id="email"
-    placeholder="professor@sesi.sc.edu.br">
+    id="email">
 
   </div>
 
@@ -356,59 +403,39 @@ button:hover{
 
     <input
     type="password"
-    id="senha"
-    placeholder="********">
+    id="senha">
 
   </div>
 
   <button onclick="login()">
-    Entrar no sistema
+    Entrar
   </button>
 
   <div class="demo">
 
     <h3>
-      Usuários de demonstração
+      Usuários Demo
     </h3>
 
     <div class="demo-item">
-
-      <strong>
-        Professor
-      </strong>
-
       joao@sesi.sc.edu.br
-
     </div>
 
     <div class="demo-item">
-
-      <strong>
-        Coordenador
-      </strong>
-
       ana@sesi.sc.edu.br
-
     </div>
 
     <div class="demo-item">
-
-      <strong>
-        Manutenção
-      </strong>
-
       admin@sesi.sc.edu.br
-
     </div>
 
     <p style="
       margin-top:10px;
-      color:var(--muted);
+      color:#64748B;
       font-size:13px;
     ">
 
-      senha padrão:
-      123456
+      senha: 123456
 
     </p>
 
@@ -476,13 +503,15 @@ button:hover{
           margin-top:6px;
         ">
 
-          Bem-vindo ao sistema
+          Bem-vindo
 
         </p>
 
       </div>
 
     </div>
+
+    <!-- CARDS -->
 
     <div class="cards">
 
@@ -540,11 +569,164 @@ button:hover{
 
     </div>
 
+    <!-- PLANEJAMENTO -->
+
+    <div class="card"
+    style="margin-top:30px;">
+
+      <div style="
+        display:flex;
+        justify-content:space-between;
+        align-items:center;
+        margin-bottom:24px;
+      ">
+
+        <div>
+
+          <h2>
+            📝 Planejamento Semanal
+          </h2>
+
+          <p style="
+            color:#64748B;
+            margin-top:6px;
+          ">
+
+            Crie planejamentos
+
+          </p>
+
+        </div>
+
+        <button onclick="abrirModal()">
+
+          ➕ Novo Planejamento
+
+        </button>
+
+      </div>
+
+      <table>
+
+        <thead>
+
+          <tr>
+
+            <th>
+              Disciplina
+            </th>
+
+            <th>
+              Turma
+            </th>
+
+            <th>
+              Semana
+            </th>
+
+            <th>
+              Status
+            </th>
+
+          </tr>
+
+        </thead>
+
+        <tbody id="listaPlanejamentos">
+
+        </tbody>
+
+      </table>
+
+    </div>
+
   </main>
 
 </div>
 
+<!-- MODAL -->
+
+<div id="modal">
+
+  <div class="modal-box">
+
+    <div style="
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      margin-bottom:24px;
+    ">
+
+      <h2>
+        Novo Planejamento
+      </h2>
+
+      <button onclick="fecharModal()">
+        ✖
+      </button>
+
+    </div>
+
+    <div class="field">
+
+      <label>
+        Disciplina
+      </label>
+
+      <input
+      type="text"
+      id="disciplina">
+
+    </div>
+
+    <div class="field">
+
+      <label>
+        Turma
+      </label>
+
+      <input
+      type="text"
+      id="turma">
+
+    </div>
+
+    <div class="field">
+
+      <label>
+        Semana
+      </label>
+
+      <input
+      type="text"
+      id="semana">
+
+    </div>
+
+    <div class="field">
+
+      <label>
+        Conteúdo
+      </label>
+
+      <textarea
+      id="conteudo"></textarea>
+
+    </div>
+
+    <button onclick="salvarPlanejamento()">
+
+      💾 Salvar Planejamento
+
+    </button>
+
+  </div>
+
+</div>
+
 <script>
+
+/* LOGIN */
 
 const usuarios = [
 
@@ -584,10 +766,11 @@ function login(){
   ).value;
 
   const usuario =
-  usuarios.find(u =>
+  usuarios.find(u=>
 
     u.email === email &&
     u.senha === senha
+
   );
 
   if(!usuario){
@@ -613,12 +796,12 @@ function iniciarDashboard(usuario){
   document.getElementById(
     'titulo'
   ).innerText =
-    'Olá, ' + usuario.nome;
+  'Olá, ' + usuario.nome;
 
   document.getElementById(
     'subtitulo'
   ).innerText =
-    'Perfil: ' + usuario.role;
+  'Perfil: ' + usuario.role;
 
   if(usuario.role === 'coordenador'){
 
@@ -642,6 +825,138 @@ function iniciarDashboard(usuario){
 function logout(){
 
   location.reload();
+}
+
+/* PLANEJAMENTOS */
+
+const planejamentos = [];
+
+function abrirModal(){
+
+  document.getElementById(
+    'modal'
+  ).style.display = 'flex';
+}
+
+function fecharModal(){
+
+  document.getElementById(
+    'modal'
+  ).style.display = 'none';
+}
+
+function salvarPlanejamento(){
+
+  const disciplina =
+  document.getElementById(
+    'disciplina'
+  ).value;
+
+  const turma =
+  document.getElementById(
+    'turma'
+  ).value;
+
+  const semana =
+  document.getElementById(
+    'semana'
+  ).value;
+
+  const conteudo =
+  document.getElementById(
+    'conteudo'
+  ).value;
+
+  if(
+    !disciplina ||
+    !turma ||
+    !semana
+  ){
+
+    alert(
+      'Preencha os campos'
+    );
+
+    return;
+  }
+
+  planejamentos.push({
+
+    disciplina,
+    turma,
+    semana,
+    conteudo,
+    status:'Em análise'
+
+  });
+
+  renderizarPlanejamentos();
+
+  fecharModal();
+
+  limparCampos();
+}
+
+function renderizarPlanejamentos(){
+
+  const lista =
+  document.getElementById(
+    'listaPlanejamentos'
+  );
+
+  lista.innerHTML = '';
+
+  planejamentos.forEach(p=>{
+
+    lista.innerHTML += `
+
+      <tr>
+
+        <td>
+          ${p.disciplina}
+        </td>
+
+        <td>
+          ${p.turma}
+        </td>
+
+        <td>
+          ${p.semana}
+        </td>
+
+        <td>
+
+          <span class="badge">
+
+            ${p.status}
+
+          </span>
+
+        </td>
+
+      </tr>
+
+    `;
+  });
+}
+
+function limparCampos(){
+
+  document.getElementById(
+    'disciplina'
+  ).value = '';
+
+  document.getElementById(
+    'turma'
+  ).value = '';
+
+  document.getElementById(
+    'semana'
+  ).value = '';
+
+  document.getElementById(
+    'conteudo'
+  ).value = '';
 }
 
 </script>
