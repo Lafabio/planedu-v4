@@ -8,7 +8,7 @@
 <meta name="viewport"
 content="width=device-width, initial-scale=1.0">
 
-<title>PlanEdu V8</title>
+<title>PlanEdu V9</title>
 
 <link rel="stylesheet"
 href="style.css">
@@ -27,8 +27,16 @@ rel="stylesheet">
   <div class="loader"></div>
 
   <p>
-    Carregando PlanEdu...
+    Inicializando plataforma...
   </p>
+
+</div>
+
+<!-- TOAST -->
+
+<div id="toast">
+
+  Operação realizada
 
 </div>
 
@@ -40,7 +48,7 @@ id="loginBox">
   <div class="logo">
 
     <h1>
-      📚 PlanEdu V8
+      📚 PlanEdu V9
     </h1>
 
     <p>
@@ -79,32 +87,20 @@ id="loginBox">
 
   <div class="demo-users">
 
-    <p>
-      Usuários demo:
-    </p>
-
     <small>
-
       professor@sesi.sc.edu.br
-
     </small>
 
     <small>
-
       coordenador@sesi.sc.edu.br
-
     </small>
 
     <small>
-
       admin@sesi.sc.edu.br
-
     </small>
 
     <small>
-
       senha: 123456
-
     </small>
 
   </div>
@@ -114,6 +110,8 @@ id="loginBox">
 <!-- DASHBOARD -->
 
 <div id="dashboard">
+
+  <!-- SIDEBAR -->
 
   <aside class="sidebar">
 
@@ -176,6 +174,12 @@ id="loginBox">
 
       </button>
 
+      <button onclick="abrirTela('relatorioTela')">
+
+        📊 Relatórios
+
+      </button>
+
       <button onclick="abrirTela('perfilTela')">
 
         👤 Meu Perfil
@@ -197,6 +201,8 @@ id="loginBox">
     </div>
 
   </aside>
+
+  <!-- MAIN -->
 
   <main class="main">
 
@@ -272,31 +278,19 @@ id="loginBox">
 
       </div>
 
-      <!-- GRÁFICO -->
+      <!-- PROGRESSO -->
 
       <div class="card"
       style="margin-top:30px;">
 
         <h2>
-          📊 Progresso Pedagógico
+          📈 Progresso Pedagógico
         </h2>
 
-        <div class="progress-area">
+        <div class="progress-bar">
 
-          <div class="progress-card">
-
-            <span>
-              Planejamentos aprovados
-            </span>
-
-            <div class="progress-bar">
-
-              <div class="progress-fill"
-              id="progressFill">
-
-              </div>
-
-            </div>
+          <div class="progress-fill"
+          id="progressFill">
 
           </div>
 
@@ -378,13 +372,9 @@ id="loginBox">
 
       <div class="card">
 
-        <div class="topbar">
-
-          <h2>
-            📋 Coordenação Pedagógica
-          </h2>
-
-        </div>
+        <h2>
+          📋 Coordenação Pedagógica
+        </h2>
 
         <div id="listaCoordenacao">
 
@@ -416,6 +406,56 @@ id="loginBox">
         </div>
 
         <div id="usuariosLista">
+
+        </div>
+
+      </div>
+
+    </section>
+
+    <!-- RELATÓRIOS -->
+
+    <section id="relatorioTela"
+    class="tela hidden">
+
+      <div class="card">
+
+        <h2>
+          📊 Relatórios Gerais
+        </h2>
+
+        <div class="cards"
+        style="margin-top:24px;">
+
+          <div class="card">
+
+            <h3>
+              Professores
+            </h3>
+
+            <div class="big"
+            id="relatorioProfessores">
+
+              0
+
+            </div>
+
+          </div>
+
+          <div class="card">
+
+            <h3>
+              Coordenadores
+            </h3>
+
+            <div class="big"
+            id="relatorioCoords">
+
+              0
+
+            </div>
+
+          </div>
 
         </div>
 
@@ -500,7 +540,7 @@ id="loginBox">
 
 </div>
 
-<!-- MODAL -->
+<!-- MODAL PLANEJAMENTO -->
 
 <div id="modal"
 class="modal-hidden">

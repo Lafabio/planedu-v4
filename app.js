@@ -7,6 +7,32 @@ setTimeout(()=>{
 },1200);
 
 /* ========================= */
+/* TOAST */
+/* ========================= */
+
+function showToast(texto){
+
+  const toast =
+  document.getElementById(
+    'toast'
+  );
+
+  toast.innerText = texto;
+
+  toast.classList.add(
+    'show'
+  );
+
+  setTimeout(()=>{
+
+    toast.classList.remove(
+      'show'
+    );
+
+  },3000);
+}
+
+/* ========================= */
 /* STORAGE */
 /* ========================= */
 
@@ -71,7 +97,7 @@ function login(){
 
   if(!usuario){
 
-    alert(
+    showToast(
       'Usuário inválido'
     );
 
@@ -137,7 +163,13 @@ function iniciarDashboard(){
 
   renderizarCoordenacao();
 
+  atualizarRelatorios();
+
   carregarDarkMode();
+
+  showToast(
+    'Login realizado'
+  );
 }
 
 function logout(){
@@ -163,6 +195,10 @@ function toggleDarkMode(){
       'dark'
     )
 
+  );
+
+  showToast(
+    'Tema alterado'
   );
 }
 
@@ -279,7 +315,7 @@ function salvarPlanejamento(){
     !conteudo
   ){
 
-    alert(
+    showToast(
       'Preencha todos os campos'
     );
 
@@ -311,6 +347,10 @@ function salvarPlanejamento(){
   limparCampos();
 
   fecharModal();
+
+  showToast(
+    'Planejamento criado'
+  );
 }
 
 function renderizarPlanejamentos(){
@@ -400,6 +440,10 @@ function removerPlanejamento(index){
   atualizarDashboard();
 
   renderizarCoordenacao();
+
+  showToast(
+    'Planejamento removido'
+  );
 }
 
 function limparCampos(){
@@ -471,6 +515,37 @@ function atualizarDashboard(){
     'progressFill'
   ).style.width =
   porcentagem + '%';
+}
+
+/* ========================= */
+/* RELATÓRIOS */
+/* ========================= */
+
+function atualizarRelatorios(){
+
+  const professores =
+  usuarios.filter(u=>
+
+    u.role === 'professor'
+
+  ).length;
+
+  const coords =
+  usuarios.filter(u=>
+
+    u.role === 'coordenador'
+
+  ).length;
+
+  document.getElementById(
+    'relatorioProfessores'
+  ).innerText =
+  professores;
+
+  document.getElementById(
+    'relatorioCoords'
+  ).innerText =
+  coords;
 }
 
 /* ========================= */
@@ -551,6 +626,10 @@ function aprovarPlanejamento(index){
   atualizarDashboard();
 
   renderizarCoordenacao();
+
+  showToast(
+    'Planejamento aprovado'
+  );
 }
 
 /* ========================= */
@@ -612,8 +691,8 @@ function salvarPerfil(){
     );
   }
 
-  alert(
-    'Perfil salvo'
+  showToast(
+    'Perfil atualizado'
   );
 }
 
@@ -692,7 +771,7 @@ function criarUsuario(){
     !email
   ){
 
-    alert(
+    showToast(
       'Preencha os campos'
     );
 
@@ -712,7 +791,13 @@ function criarUsuario(){
 
   renderizarUsuarios();
 
+  atualizarRelatorios();
+
   fecharUsuarioModal();
+
+  showToast(
+    'Usuário criado'
+  );
 }
 
 function renderizarUsuarios(){
@@ -780,6 +865,12 @@ function removerUsuario(index){
   salvarStorage();
 
   renderizarUsuarios();
+
+  atualizarRelatorios();
+
+  showToast(
+    'Usuário removido'
+  );
 }
 
 /* ========================= */
