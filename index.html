@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="pt-br">
+
 <head>
 
 <meta charset="UTF-8">
@@ -7,374 +8,13 @@
 <meta name="viewport"
 content="width=device-width, initial-scale=1.0">
 
-<title>PlanEdu V4</title>
+<title>PlanEdu V5</title>
 
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet"
+href="style.css">
 
-<style>
-
-:root{
-
-  --brand:#2563EB;
-  --accent:#7C3AED;
-
-  --bg:#F8FAFC;
-  --surface:#FFFFFF;
-
-  --text:#0F172A;
-  --muted:#64748B;
-
-  --border:#E2E8F0;
-
-  --success:#10B981;
-}
-
-*{
-  margin:0;
-  padding:0;
-  box-sizing:border-box;
-}
-
-body{
-
-  font-family:'Inter',sans-serif;
-
-  background:
-  linear-gradient(
-    135deg,
-    #2563EB,
-    #7C3AED
-  );
-
-  min-height:100vh;
-}
-
-/* LOGIN */
-
-.container{
-
-  width:100%;
-  max-width:460px;
-
-  background:white;
-
-  border-radius:28px;
-
-  padding:40px;
-
-  box-shadow:
-  0 20px 40px rgba(0,0,0,.15);
-
-  position:absolute;
-
-  top:50%;
-  left:50%;
-
-  transform:
-  translate(-50%,-50%);
-}
-
-.logo{
-
-  text-align:center;
-
-  margin-bottom:35px;
-}
-
-.logo h1{
-
-  font-size:36px;
-
-  color:var(--text);
-
-  margin-bottom:10px;
-}
-
-.logo p{
-
-  color:var(--muted);
-
-  font-size:15px;
-}
-
-.field{
-
-  margin-bottom:20px;
-}
-
-.field label{
-
-  display:block;
-
-  margin-bottom:8px;
-
-  font-size:14px;
-
-  font-weight:600;
-}
-
-.field input{
-
-  width:100%;
-
-  padding:16px;
-
-  border-radius:14px;
-
-  border:1px solid var(--border);
-
-  font-size:15px;
-}
-
-.field textarea{
-
-  width:100%;
-
-  height:120px;
-
-  border-radius:14px;
-
-  border:1px solid var(--border);
-
-  padding:16px;
-
-  resize:none;
-}
-
-button{
-
-  border:none;
-
-  background:
-  linear-gradient(
-    135deg,
-    var(--brand),
-    var(--accent)
-  );
-
-  color:white;
-
-  padding:14px 18px;
-
-  border-radius:14px;
-
-  cursor:pointer;
-
-  font-size:15px;
-
-  font-weight:600;
-
-  transition:.2s;
-}
-
-button:hover{
-
-  transform:translateY(-2px);
-}
-
-.demo{
-
-  margin-top:30px;
-
-  background:#F8FAFC;
-
-  border-radius:18px;
-
-  padding:20px;
-}
-
-.demo h3{
-
-  margin-bottom:14px;
-
-  font-size:15px;
-}
-
-.demo-item{
-
-  padding:10px;
-
-  background:white;
-
-  border-radius:12px;
-
-  margin-bottom:10px;
-
-  border:1px solid var(--border);
-}
-
-/* DASHBOARD */
-
-#dashboard{
-
-  display:none;
-}
-
-.sidebar{
-
-  width:260px;
-
-  background:white;
-
-  position:fixed;
-
-  left:0;
-  top:0;
-
-  height:100vh;
-
-  padding:24px;
-
-  border-right:1px solid var(--border);
-}
-
-.sidebar h2{
-
-  margin-bottom:30px;
-}
-
-.menu{
-
-  display:flex;
-  flex-direction:column;
-  gap:10px;
-}
-
-.menu button{
-
-  text-align:left;
-}
-
-.main{
-
-  margin-left:260px;
-
-  padding:30px;
-}
-
-.topbar{
-
-  display:flex;
-  justify-content:space-between;
-  align-items:center;
-
-  margin-bottom:30px;
-}
-
-.cards{
-
-  display:grid;
-
-  grid-template-columns:
-  repeat(auto-fit,minmax(240px,1fr));
-
-  gap:20px;
-}
-
-.card{
-
-  background:white;
-
-  padding:24px;
-
-  border-radius:20px;
-
-  box-shadow:
-  0 10px 25px rgba(0,0,0,.06);
-}
-
-.card h3{
-
-  margin-bottom:10px;
-}
-
-.big{
-
-  font-size:42px;
-
-  font-weight:700;
-
-  margin-top:14px;
-}
-
-.badge{
-
-  display:inline-block;
-
-  padding:8px 14px;
-
-  background:#DCFCE7;
-
-  color:#166534;
-
-  border-radius:999px;
-
-  font-size:13px;
-
-  font-weight:600;
-}
-
-table{
-
-  width:100%;
-
-  border-collapse:collapse;
-}
-
-th,td{
-
-  padding:14px;
-
-  border-bottom:1px solid #E2E8F0;
-
-  text-align:left;
-}
-
-/* MODAL */
-
-#modal{
-
-  position:fixed;
-
-  inset:0;
-
-  background:rgba(0,0,0,.5);
-
-  display:none;
-
-  align-items:center;
-  justify-content:center;
-
-  z-index:999;
-}
-
-.modal-box{
-
-  width:700px;
-
-  max-width:95%;
-
-  background:white;
-
-  border-radius:24px;
-
-  padding:30px;
-}
-
-.comentario{
-
-  padding:18px;
-
-  border:1px solid #E2E8F0;
-
-  border-radius:16px;
-
-  margin-bottom:16px;
-
-  background:#F8FAFC;
-}
-
-</style>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap"
+rel="stylesheet">
 
 </head>
 
@@ -382,12 +22,13 @@ th,td{
 
 <!-- LOGIN -->
 
-<div class="container" id="loginBox">
+<div class="container"
+id="loginBox">
 
   <div class="logo">
 
     <h1>
-      📚 PlanEdu V4
+      📚 PlanEdu V5
     </h1>
 
     <p>
@@ -424,36 +65,6 @@ th,td{
     Entrar
   </button>
 
-  <div class="demo">
-
-    <h3>
-      Usuários Demo
-    </h3>
-
-    <div class="demo-item">
-      joao@sesi.sc.edu.br
-    </div>
-
-    <div class="demo-item">
-      ana@sesi.sc.edu.br
-    </div>
-
-    <div class="demo-item">
-      admin@sesi.sc.edu.br
-    </div>
-
-    <p style="
-      margin-top:10px;
-      color:#64748B;
-      font-size:13px;
-    ">
-
-      senha: 123456
-
-    </p>
-
-  </div>
-
 </div>
 
 <!-- DASHBOARD -->
@@ -476,15 +87,13 @@ th,td{
         📝 Planejamentos
       </button>
 
-      <button id="coordBtn"
-      style="display:none;">
+      <button id="coordBtn">
 
         📋 Coordenação
 
       </button>
 
-      <button id="adminBtn"
-      style="display:none;">
+      <button id="adminBtn">
 
         ⚙️ Administração
 
@@ -510,11 +119,7 @@ th,td{
           Dashboard
         </h1>
 
-        <p id="subtitulo"
-        style="
-          color:#64748B;
-          margin-top:6px;
-        ">
+        <p id="subtitulo">
 
           Bem-vindo
 
@@ -524,8 +129,6 @@ th,td{
 
     </div>
 
-    <!-- CARDS -->
-
     <div class="cards">
 
       <div class="card">
@@ -534,13 +137,11 @@ th,td{
           Planejamentos
         </h3>
 
-        <p>
-          Semana atual
-        </p>
-
         <div class="big"
         id="totalPlanejamentos">
+
           0
+
         </div>
 
       </div>
@@ -548,15 +149,14 @@ th,td{
       <div class="card">
 
         <h3>
-          Comentários
+          Usuários
         </h3>
 
-        <p>
-          Coordenação
-        </p>
+        <div class="big"
+        id="totalUsuarios">
 
-        <div class="big">
-          4
+          3
+
         </div>
 
       </div>
@@ -567,201 +167,13 @@ th,td{
           Status
         </h3>
 
-        <p>
-          Planejamento semanal
-        </p>
+        <span class="badge">
 
-        <div style="margin-top:16px;">
+          Sistema Online
 
-          <span class="badge">
-            Em dia
-          </span>
-
-        </div>
+        </span>
 
       </div>
-
-    </div>
-
-    <!-- PLANEJAMENTOS -->
-
-    <div class="card"
-    style="margin-top:30px;">
-
-      <div style="
-        display:flex;
-        justify-content:space-between;
-        align-items:center;
-        margin-bottom:24px;
-      ">
-
-        <div>
-
-          <h2>
-            📝 Planejamento Semanal
-          </h2>
-
-          <p style="
-            color:#64748B;
-            margin-top:6px;
-          ">
-
-            Crie planejamentos
-
-          </p>
-
-        </div>
-
-        <button onclick="abrirModal()">
-
-          ➕ Novo Planejamento
-
-        </button>
-
-      </div>
-
-      <table>
-
-        <thead>
-
-          <tr>
-
-            <th>
-              Disciplina
-            </th>
-
-            <th>
-              Turma
-            </th>
-
-            <th>
-              Semana
-            </th>
-
-            <th>
-              Status
-            </th>
-
-          </tr>
-
-        </thead>
-
-        <tbody id="listaPlanejamentos">
-
-        </tbody>
-
-      </table>
-
-    </div>
-
-    <!-- COMENTÁRIOS -->
-
-    <div class="card"
-    style="margin-top:30px;">
-
-      <h2>
-        💬 Comentários da Coordenação
-      </h2>
-
-      <p style="
-        color:#64748B;
-        margin-top:6px;
-        margin-bottom:24px;
-      ">
-
-        Observações pedagógicas
-
-      </p>
-
-      <div class="comentario">
-
-        <strong>
-          Coordenação Pedagógica
-        </strong>
-
-        <p style="
-          margin-top:10px;
-          line-height:1.6;
-        ">
-
-          Revisar habilidades da turma 201
-          para próxima semana.
-
-        </p>
-
-      </div>
-
-    </div>
-
-    <!-- PERFIL -->
-
-    <div class="card"
-    style="margin-top:30px;">
-
-      <h2>
-        👤 Meu Perfil
-      </h2>
-
-      <p style="
-        color:#64748B;
-        margin-top:6px;
-        margin-bottom:24px;
-      ">
-
-        Configurações pessoais
-
-      </p>
-
-      <div style="
-        display:grid;
-        grid-template-columns:
-        repeat(auto-fit,minmax(280px,1fr));
-        gap:20px;
-      ">
-
-        <div class="field">
-
-          <label>
-            Nome
-          </label>
-
-          <input
-          type="text"
-          id="perfilNome">
-
-        </div>
-
-        <div class="field">
-
-          <label>
-            Disciplina
-          </label>
-
-          <input
-          type="text"
-          id="perfilDisciplina">
-
-        </div>
-
-        <div class="field">
-
-          <label>
-            Horário semanal
-          </label>
-
-          <input
-          type="text"
-          id="perfilHorario">
-
-        </div>
-
-      </div>
-
-      <button onclick="salvarPerfil()">
-
-        💾 Salvar Perfil
-
-      </button>
 
     </div>
 
@@ -769,390 +181,7 @@ th,td{
 
 </div>
 
-<!-- MODAL -->
-
-<div id="modal">
-
-  <div class="modal-box">
-
-    <div style="
-      display:flex;
-      justify-content:space-between;
-      align-items:center;
-      margin-bottom:24px;
-    ">
-
-      <h2>
-        Novo Planejamento
-      </h2>
-
-      <button onclick="fecharModal()">
-        ✖
-      </button>
-
-    </div>
-
-    <div class="field">
-
-      <label>
-        Disciplina
-      </label>
-
-      <input
-      type="text"
-      id="disciplina">
-
-    </div>
-
-    <div class="field">
-
-      <label>
-        Turma
-      </label>
-
-      <input
-      type="text"
-      id="turma">
-
-    </div>
-
-    <div class="field">
-
-      <label>
-        Semana
-      </label>
-
-      <input
-      type="text"
-      id="semana">
-
-    </div>
-
-    <div class="field">
-
-      <label>
-        Conteúdo
-      </label>
-
-      <textarea
-      id="conteudo"></textarea>
-
-    </div>
-
-    <button onclick="salvarPlanejamento()">
-
-      💾 Salvar Planejamento
-
-    </button>
-
-  </div>
-
-</div>
-
-<script>
-
-/* LOGIN */
-
-const usuarios = [
-
-  {
-    email:'joao@sesi.sc.edu.br',
-    senha:'123456',
-    nome:'João Silva',
-    role:'professor'
-  },
-
-  {
-    email:'ana@sesi.sc.edu.br',
-    senha:'123456',
-    nome:'Ana Coordenadora',
-    role:'coordenador'
-  },
-
-  {
-    email:'admin@sesi.sc.edu.br',
-    senha:'123456',
-    nome:'Administrador',
-    role:'manutencao'
-  }
-
-];
-
-function login(){
-
-  const email =
-  document.getElementById(
-    'email'
-  ).value;
-
-  const senha =
-  document.getElementById(
-    'senha'
-  ).value;
-
-  const usuario =
-  usuarios.find(u=>
-
-    u.email === email &&
-    u.senha === senha
-
-  );
-
-  if(!usuario){
-
-    alert('Usuário inválido');
-
-    return;
-  }
-
-  iniciarDashboard(usuario);
-}
-
-function iniciarDashboard(usuario){
-
-  document.getElementById(
-    'loginBox'
-  ).style.display = 'none';
-
-  document.getElementById(
-    'dashboard'
-  ).style.display = 'block';
-
-  document.getElementById(
-    'titulo'
-  ).innerText =
-  'Olá, ' + usuario.nome;
-
-  document.getElementById(
-    'subtitulo'
-  ).innerText =
-  'Perfil: ' + usuario.role;
-
-  if(usuario.role === 'coordenador'){
-
-    document.getElementById(
-      'coordBtn'
-    ).style.display = 'block';
-  }
-
-  if(usuario.role === 'manutencao'){
-
-    document.getElementById(
-      'coordBtn'
-    ).style.display = 'block';
-
-    document.getElementById(
-      'adminBtn'
-    ).style.display = 'block';
-  }
-}
-
-function logout(){
-
-  location.reload();
-}
-
-/* PLANEJAMENTOS */
-
-const planejamentos = [];
-
-function abrirModal(){
-
-  document.getElementById(
-    'modal'
-  ).style.display = 'flex';
-}
-
-function fecharModal(){
-
-  document.getElementById(
-    'modal'
-  ).style.display = 'none';
-}
-
-function salvarPlanejamento(){
-
-  const disciplina =
-  document.getElementById(
-    'disciplina'
-  ).value;
-
-  const turma =
-  document.getElementById(
-    'turma'
-  ).value;
-
-  const semana =
-  document.getElementById(
-    'semana'
-  ).value;
-
-  const conteudo =
-  document.getElementById(
-    'conteudo'
-  ).value;
-
-  if(
-    !disciplina ||
-    !turma ||
-    !semana
-  ){
-
-    alert(
-      'Preencha os campos'
-    );
-
-    return;
-  }
-
-  planejamentos.push({
-
-    disciplina,
-    turma,
-    semana,
-    conteudo,
-    status:'Em análise'
-
-  });
-
-  renderizarPlanejamentos();
-
-  fecharModal();
-
-  limparCampos();
-}
-
-function renderizarPlanejamentos(){
-
-  const lista =
-  document.getElementById(
-    'listaPlanejamentos'
-  );
-
-  lista.innerHTML = '';
-
-  planejamentos.forEach(p=>{
-
-    lista.innerHTML += `
-
-      <tr>
-
-        <td>
-          ${p.disciplina}
-        </td>
-
-        <td>
-          ${p.turma}
-        </td>
-
-        <td>
-          ${p.semana}
-        </td>
-
-        <td>
-
-          <span class="badge">
-
-            ${p.status}
-
-          </span>
-
-        </td>
-
-      </tr>
-
-    `;
-  });
-
-  document.getElementById(
-    'totalPlanejamentos'
-  ).innerText =
-  planejamentos.length;
-}
-
-function limparCampos(){
-
-  document.getElementById(
-    'disciplina'
-  ).value = '';
-
-  document.getElementById(
-    'turma'
-  ).value = '';
-
-  document.getElementById(
-    'semana'
-  ).value = '';
-
-  document.getElementById(
-    'conteudo'
-  ).value = '';
-}
-
-/* PERFIL */
-
-function salvarPerfil(){
-
-  const nome =
-  document.getElementById(
-    'perfilNome'
-  ).value;
-
-  const disciplina =
-  document.getElementById(
-    'perfilDisciplina'
-  ).value;
-
-  const horario =
-  document.getElementById(
-    'perfilHorario'
-  ).value;
-
-  localStorage.setItem(
-    'perfilNome',
-    nome
-  );
-
-  localStorage.setItem(
-    'perfilDisciplina',
-    disciplina
-  );
-
-  localStorage.setItem(
-    'perfilHorario',
-    horario
-  );
-
-  alert(
-    'Perfil atualizado'
-  );
-}
-
-window.onload = ()=>{
-
-  document.getElementById(
-    'perfilNome'
-  ).value =
-  localStorage.getItem(
-    'perfilNome'
-  ) || '';
-
-  document.getElementById(
-    'perfilDisciplina'
-  ).value =
-  localStorage.getItem(
-    'perfilDisciplina'
-  ) || '';
-
-  document.getElementById(
-    'perfilHorario'
-  ).value =
-  localStorage.getItem(
-    'perfilHorario'
-  ) || '';
-}
-
-</script>
+<script src="app.js"></script>
 
 </body>
 </html>
