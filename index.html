@@ -9,39 +9,308 @@ content="width=device-width, initial-scale=1.0">
 
 <title>PlanEdu V4</title>
 
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
 <style>
 
-body{
+:root{
+
+  --brand:#2563EB;
+  --accent:#7C3AED;
+
+  --bg:#F8FAFC;
+  --surface:#FFFFFF;
+
+  --text:#0F172A;
+  --muted:#64748B;
+
+  --border:#E2E8F0;
+
+  --success:#10B981;
+}
+
+*{
   margin:0;
-  font-family:Arial;
-  background:#F8FAFC;
+  padding:0;
+  box-sizing:border-box;
+}
+
+body{
+
+  font-family:'Inter',sans-serif;
+
+  background:
+  linear-gradient(
+    135deg,
+    #2563EB,
+    #7C3AED
+  );
+
+  min-height:100vh;
 
   display:flex;
   align-items:center;
   justify-content:center;
-
-  height:100vh;
 }
 
-.box{
+.container{
+
+  width:100%;
+  max-width:460px;
+
   background:white;
 
+  border-radius:28px;
+
   padding:40px;
+
+  box-shadow:
+  0 20px 40px rgba(0,0,0,.15);
+
+}
+
+.logo{
+
+  text-align:center;
+
+  margin-bottom:35px;
+}
+
+.logo h1{
+
+  font-size:36px;
+
+  color:var(--text);
+
+  margin-bottom:10px;
+}
+
+.logo p{
+
+  color:var(--muted);
+
+  font-size:15px;
+}
+
+.field{
+
+  margin-bottom:20px;
+}
+
+.field label{
+
+  display:block;
+
+  margin-bottom:8px;
+
+  font-size:14px;
+
+  font-weight:600;
+}
+
+.field input{
+
+  width:100%;
+
+  padding:16px;
+
+  border-radius:14px;
+
+  border:1px solid var(--border);
+
+  font-size:15px;
+}
+
+.field input:focus{
+
+  outline:none;
+
+  border-color:var(--brand);
+}
+
+button{
+
+  width:100%;
+
+  border:none;
+
+  background:linear-gradient(
+    135deg,
+    var(--brand),
+    var(--accent)
+  );
+
+  color:white;
+
+  padding:16px;
+
+  border-radius:14px;
+
+  cursor:pointer;
+
+  font-size:15px;
+
+  font-weight:600;
+
+  transition:.2s;
+}
+
+button:hover{
+
+  transform:translateY(-2px);
+}
+
+.demo{
+
+  margin-top:30px;
+
+  background:#F8FAFC;
+
+  border-radius:18px;
+
+  padding:20px;
+}
+
+.demo h3{
+
+  margin-bottom:14px;
+
+  font-size:15px;
+}
+
+.demo-item{
+
+  padding:10px;
+
+  background:white;
+
+  border-radius:12px;
+
+  margin-bottom:10px;
+
+  border:1px solid var(--border);
+}
+
+.demo-item strong{
+
+  display:block;
+
+  margin-bottom:4px;
+}
+
+#dashboard{
+
+  display:none;
+
+  width:100%;
+}
+
+.sidebar{
+
+  width:260px;
+
+  background:white;
+
+  position:fixed;
+
+  left:0;
+  top:0;
+
+  height:100vh;
+
+  padding:24px;
+
+  border-right:1px solid var(--border);
+}
+
+.sidebar h2{
+
+  margin-bottom:30px;
+}
+
+.menu{
+
+  display:flex;
+  flex-direction:column;
+  gap:10px;
+}
+
+.menu button{
+
+  background:#F8FAFC;
+
+  color:var(--text);
+
+  text-align:left;
+}
+
+.main{
+
+  margin-left:260px;
+
+  padding:30px;
+}
+
+.topbar{
+
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+
+  margin-bottom:30px;
+}
+
+.cards{
+
+  display:grid;
+
+  grid-template-columns:
+  repeat(auto-fit,minmax(240px,1fr));
+
+  gap:20px;
+}
+
+.card{
+
+  background:white;
+
+  padding:24px;
 
   border-radius:20px;
 
   box-shadow:
-    0 10px 25px rgba(0,0,0,.1);
-
-  text-align:center;
+  0 10px 25px rgba(0,0,0,.06);
 }
 
-h1{
+.card h3{
+
   margin-bottom:10px;
 }
 
-p{
-  color:#64748B;
+.big{
+
+  font-size:42px;
+
+  font-weight:700;
+
+  margin-top:14px;
+}
+
+.badge{
+
+  display:inline-block;
+
+  padding:8px 14px;
+
+  background:#DCFCE7;
+
+  color:#166534;
+
+  border-radius:999px;
+
+  font-size:13px;
+
+  font-weight:600;
 }
 
 </style>
@@ -50,17 +319,332 @@ p{
 
 <body>
 
-<div class="box">
+<!-- LOGIN -->
 
-  <h1>
-    📚 PlanEdu V4
-  </h1>
+<div class="container" id="loginBox">
 
-  <p>
-    Sistema online funcionando 🚀
-  </p>
+  <div class="logo">
+
+    <h1>
+      📚 PlanEdu V4
+    </h1>
+
+    <p>
+      Plataforma Institucional SESI
+    </p>
+
+  </div>
+
+  <div class="field">
+
+    <label>
+      E-mail institucional
+    </label>
+
+    <input
+    type="email"
+    id="email"
+    placeholder="professor@sesi.sc.edu.br">
+
+  </div>
+
+  <div class="field">
+
+    <label>
+      Senha
+    </label>
+
+    <input
+    type="password"
+    id="senha"
+    placeholder="********">
+
+  </div>
+
+  <button onclick="login()">
+    Entrar no sistema
+  </button>
+
+  <div class="demo">
+
+    <h3>
+      Usuários de demonstração
+    </h3>
+
+    <div class="demo-item">
+
+      <strong>
+        Professor
+      </strong>
+
+      joao@sesi.sc.edu.br
+
+    </div>
+
+    <div class="demo-item">
+
+      <strong>
+        Coordenador
+      </strong>
+
+      ana@sesi.sc.edu.br
+
+    </div>
+
+    <div class="demo-item">
+
+      <strong>
+        Manutenção
+      </strong>
+
+      admin@sesi.sc.edu.br
+
+    </div>
+
+    <p style="
+      margin-top:10px;
+      color:var(--muted);
+      font-size:13px;
+    ">
+
+      senha padrão:
+      123456
+
+    </p>
+
+  </div>
 
 </div>
+
+<!-- DASHBOARD -->
+
+<div id="dashboard">
+
+  <aside class="sidebar">
+
+    <h2>
+      📚 PlanEdu
+    </h2>
+
+    <div class="menu">
+
+      <button>
+        🏠 Dashboard
+      </button>
+
+      <button>
+        📝 Planejamentos
+      </button>
+
+      <button id="coordBtn"
+      style="display:none;">
+
+        📋 Coordenação
+
+      </button>
+
+      <button id="adminBtn"
+      style="display:none;">
+
+        ⚙️ Administração
+
+      </button>
+
+      <button onclick="logout()">
+
+        🚪 Sair
+
+      </button>
+
+    </div>
+
+  </aside>
+
+  <main class="main">
+
+    <div class="topbar">
+
+      <div>
+
+        <h1 id="titulo">
+          Dashboard
+        </h1>
+
+        <p id="subtitulo"
+        style="
+          color:#64748B;
+          margin-top:6px;
+        ">
+
+          Bem-vindo ao sistema
+
+        </p>
+
+      </div>
+
+    </div>
+
+    <div class="cards">
+
+      <div class="card">
+
+        <h3>
+          Planejamentos
+        </h3>
+
+        <p>
+          Semana atual
+        </p>
+
+        <div class="big">
+          18
+        </div>
+
+      </div>
+
+      <div class="card">
+
+        <h3>
+          Comentários
+        </h3>
+
+        <p>
+          Coordenação
+        </p>
+
+        <div class="big">
+          4
+        </div>
+
+      </div>
+
+      <div class="card">
+
+        <h3>
+          Status
+        </h3>
+
+        <p>
+          Planejamento semanal
+        </p>
+
+        <div style="margin-top:16px;">
+
+          <span class="badge">
+            Em dia
+          </span>
+
+        </div>
+
+      </div>
+
+    </div>
+
+  </main>
+
+</div>
+
+<script>
+
+const usuarios = [
+
+  {
+    email:'joao@sesi.sc.edu.br',
+    senha:'123456',
+    nome:'João Silva',
+    role:'professor'
+  },
+
+  {
+    email:'ana@sesi.sc.edu.br',
+    senha:'123456',
+    nome:'Ana Coordenadora',
+    role:'coordenador'
+  },
+
+  {
+    email:'admin@sesi.sc.edu.br',
+    senha:'123456',
+    nome:'Administrador',
+    role:'manutencao'
+  }
+
+];
+
+function login(){
+
+  const email =
+  document.getElementById(
+    'email'
+  ).value;
+
+  const senha =
+  document.getElementById(
+    'senha'
+  ).value;
+
+  const usuario =
+  usuarios.find(u =>
+
+    u.email === email &&
+    u.senha === senha
+  );
+
+  if(!usuario){
+
+    alert('Usuário inválido');
+
+    return;
+  }
+
+  iniciarDashboard(usuario);
+}
+
+function iniciarDashboard(usuario){
+
+  document.getElementById(
+    'loginBox'
+  ).style.display = 'none';
+
+  document.getElementById(
+    'dashboard'
+  ).style.display = 'block';
+
+  document.getElementById(
+    'titulo'
+  ).innerText =
+    'Olá, ' + usuario.nome;
+
+  document.getElementById(
+    'subtitulo'
+  ).innerText =
+    'Perfil: ' + usuario.role;
+
+  if(usuario.role === 'coordenador'){
+
+    document.getElementById(
+      'coordBtn'
+    ).style.display = 'block';
+  }
+
+  if(usuario.role === 'manutencao'){
+
+    document.getElementById(
+      'coordBtn'
+    ).style.display = 'block';
+
+    document.getElementById(
+      'adminBtn'
+    ).style.display = 'block';
+  }
+}
+
+function logout(){
+
+  location.reload();
+}
+
+</script>
 
 </body>
 </html>
