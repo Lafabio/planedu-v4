@@ -127,7 +127,15 @@ id="loginBox">
 
       </div>
 
+      <button onclick="abrirModal()">
+
+        ➕ Novo Planejamento
+
+      </button>
+
     </div>
+
+    <!-- CARDS -->
 
     <div class="cards">
 
@@ -152,8 +160,7 @@ id="loginBox">
           Usuários
         </h3>
 
-        <div class="big"
-        id="totalUsuarios">
+        <div class="big">
 
           3
 
@@ -177,7 +184,133 @@ id="loginBox">
 
     </div>
 
+    <!-- PLANEJAMENTOS -->
+
+    <div class="card"
+    style="margin-top:30px;">
+
+      <h2 style="
+        margin-bottom:24px;
+      ">
+
+        📝 Planejamentos Semanais
+
+      </h2>
+
+      <table>
+
+        <thead>
+
+          <tr>
+
+            <th>
+              Disciplina
+            </th>
+
+            <th>
+              Turma
+            </th>
+
+            <th>
+              Semana
+            </th>
+
+            <th>
+              Status
+            </th>
+
+            <th>
+              Ações
+            </th>
+
+          </tr>
+
+        </thead>
+
+        <tbody id="listaPlanejamentos">
+
+        </tbody>
+
+      </table>
+
+    </div>
+
   </main>
+
+</div>
+
+<!-- MODAL -->
+
+<div id="modal">
+
+  <div class="modal-box">
+
+    <div class="modal-top">
+
+      <h2>
+        Novo Planejamento
+      </h2>
+
+      <button onclick="fecharModal()">
+        ✖
+      </button>
+
+    </div>
+
+    <div class="field">
+
+      <label>
+        Disciplina
+      </label>
+
+      <input
+      type="text"
+      id="disciplina">
+
+    </div>
+
+    <div class="field">
+
+      <label>
+        Turma
+      </label>
+
+      <input
+      type="text"
+      id="turma">
+
+    </div>
+
+    <div class="field">
+
+      <label>
+        Semana
+      </label>
+
+      <input
+      type="text"
+      id="semana">
+
+    </div>
+
+    <div class="field">
+
+      <label>
+        Conteúdo
+      </label>
+
+      <textarea
+      id="conteudo"></textarea>
+
+    </div>
+
+    <button onclick="salvarPlanejamento()">
+
+      💾 Salvar Planejamento
+
+    </button>
+
+  </div>
 
 </div>
 

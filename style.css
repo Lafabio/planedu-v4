@@ -12,6 +12,8 @@
     --border: #E2E8F0;
 
     --success: #10B981;
+
+    --danger: #EF4444;
 }
 
 * {
@@ -96,7 +98,8 @@ body {
     font-weight: 600;
 }
 
-.field input {
+.field input,
+.field textarea {
 
     width: 100%;
 
@@ -107,6 +110,13 @@ body {
     border: 1px solid var(--border);
 
     font-size: 15px;
+}
+
+.field textarea {
+
+    height: 120px;
+
+    resize: none;
 }
 
 button {
@@ -254,4 +264,88 @@ button:hover {
     font-size: 13px;
 
     font-weight: 600;
+}
+
+/* TABELA */
+
+table {
+
+    width: 100%;
+
+    border-collapse: collapse;
+}
+
+th,
+td {
+
+    padding: 16px;
+
+    border-bottom: 1px solid #E2E8F0;
+
+    text-align: left;
+}
+
+th {
+
+    color: #64748B;
+}
+
+/* MODAL */
+
+#modal {
+
+    position: fixed;
+
+    inset: 0;
+
+    background: rgba(0, 0, 0, .5);
+
+    display: none;
+
+    align-items: center;
+    justify-content: center;
+
+    z-index: 999;
+}
+
+.modal-box {
+
+    width: 700px;
+
+    max-width: 95%;
+
+    background: white;
+
+    border-radius: 24px;
+
+    padding: 30px;
+}
+
+.modal-top {
+
+    display: flex;
+
+    justify-content: space-between;
+
+    align-items: center;
+
+    margin-bottom: 24px;
+}
+
+/* BOTÕES AÇÃO */
+
+.action-btn {
+
+    padding: 10px 14px;
+
+    border-radius: 10px;
+
+    font-size: 13px;
+
+    margin-right: 8px;
+}
+
+.delete-btn {
+
+    background: var(--danger);
 }
