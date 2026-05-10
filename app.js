@@ -1,3 +1,15 @@
+setTimeout(()=>{
+
+  document.getElementById(
+    'loadingScreen'
+  ).style.display = 'none';
+
+},1200);
+
+/* ========================= */
+/* STORAGE */
+/* ========================= */
+
 let usuarios = JSON.parse(
   localStorage.getItem('usuarios')
 ) || [
@@ -25,13 +37,13 @@ let usuarios = JSON.parse(
 
 ];
 
-let usuarioAtual = null;
-
 let planejamentos = JSON.parse(
   localStorage.getItem(
     'planejamentos'
   )
 ) || [];
+
+let usuarioAtual = null;
 
 /* ========================= */
 /* LOGIN */
@@ -68,10 +80,10 @@ function login(){
 
   usuarioAtual = usuario;
 
-  iniciarDashboard(usuario);
+  iniciarDashboard();
 }
 
-function iniciarDashboard(usuario){
+function iniciarDashboard(){
 
   document.getElementById(
     'loginBox'
@@ -84,31 +96,31 @@ function iniciarDashboard(usuario){
   document.getElementById(
     'titulo'
   ).innerText =
-  'Olá, ' + usuario.nome;
+  'Olá, ' + usuarioAtual.nome;
 
   document.getElementById(
     'subtitulo'
   ).innerText =
-  'Perfil: ' + usuario.role;
+  'Perfil: ' + usuarioAtual.role;
 
   document.getElementById(
     'sidebarNome'
   ).innerText =
-  usuario.nome;
+  usuarioAtual.nome;
 
   document.getElementById(
     'sidebarPerfil'
   ).innerText =
-  usuario.role;
+  usuarioAtual.role;
 
-  if(usuario.role !== 'coordenador'){
+  if(usuarioAtual.role !== 'coordenador'){
 
     document.getElementById(
       'coordBtn'
     ).style.display = 'none';
   }
 
-  if(usuario.role !== 'manutencao'){
+  if(usuarioAtual.role !== 'manutencao'){
 
     document.getElementById(
       'adminBtn'
@@ -124,11 +136,49 @@ function iniciarDashboard(usuario){
   atualizarDashboard();
 
   renderizarCoordenacao();
+
+  carregarDarkMode();
 }
 
 function logout(){
 
   location.reload();
+}
+
+/* ========================= */
+/* DARK MODE */
+/* ========================= */
+
+function toggleDarkMode(){
+
+  document.body.classList.toggle(
+    'dark'
+  );
+
+  localStorage.setItem(
+
+    'darkMode',
+
+    document.body.classList.contains(
+      'dark'
+    )
+
+  );
+}
+
+function carregarDarkMode(){
+
+  const dark =
+  localStorage.getItem(
+    'darkMode'
+  );
+
+  if(dark === 'true'){
+
+    document.body.classList.add(
+      'dark'
+    );
+  }
 }
 
 /* ========================= */
@@ -157,21 +207,25 @@ function abrirTela(id){
 }
 
 /* ========================= */
-/* MODAL */
+/* MODAIS */
 /* ========================= */
 
 function abrirModal(){
 
   document.getElementById(
     'modal'
-  ).style.display = 'flex';
+  ).classList.remove(
+    'modal-hidden'
+  );
 }
 
 function fecharModal(){
 
   document.getElementById(
     'modal'
-  ).style.display = 'none';
+  ).classList.add(
+    'modal-hidden'
+  );
 }
 
 function abrirUsuarioModal(){
@@ -246,7 +300,7 @@ function salvarPlanejamento(){
 
   });
 
-  salvarPlanejamentos();
+  salvarStorage();
 
   renderizarPlanejamentos();
 
@@ -339,7 +393,7 @@ function removerPlanejamento(index){
 
   planejamentos.splice(index,1);
 
-  salvarPlanejamentos();
+  salvarStorage();
 
   renderizarPlanejamentos();
 
@@ -367,25 +421,13 @@ function limparCampos(){
   ).value = '';
 }
 
-function salvarPlanejamentos(){
-
-  localStorage.setItem(
-    'planejamentos',
-    JSON.stringify(
-      planejamentos
-    )
-  );
-}
-
 /* ========================= */
 /* DASHBOARD */
 /* ========================= */
 
 function atualizarDashboard(){
 
-  document.getElementById(
-    'totalPlanejamentos'
-  ).innerText =
+  const total =
   planejamentos.length;
 
   const aprovados =
@@ -403,6 +445,11 @@ function atualizarDashboard(){
   ).length;
 
   document.getElementById(
+    'totalPlanejamentos'
+  ).innerText =
+  total;
+
+  document.getElementById(
     'totalAprovados'
   ).innerText =
   aprovados;
@@ -411,6 +458,19 @@ function atualizarDashboard(){
     'totalPendentes'
   ).innerText =
   pendentes;
+
+  let porcentagem = 0;
+
+  if(total > 0){
+
+    porcentagem =
+    (aprovados / total) * 100;
+  }
+
+  document.getElementById(
+    'progressFill'
+  ).style.width =
+  porcentagem + '%';
 }
 
 /* ========================= */
@@ -484,7 +544,7 @@ function aprovarPlanejamento(index){
   planejamentos[index].status =
   'Aprovado';
 
-  salvarPlanejamentos();
+  salvarStorage();
 
   renderizarPlanejamentos();
 
@@ -518,6 +578,13 @@ function salvarPerfil(){
 
   };
 
+  localStorage.setItem(
+    'perfil',
+    JSON.stringify(
+      perfil
+    )
+  );
+
   const foto =
   document.getElementById(
     'perfilFoto'
@@ -544,11 +611,6 @@ function salvarPerfil(){
       foto
     );
   }
-
-  localStorage.setItem(
-    'perfil',
-    JSON.stringify(perfil)
-  );
 
   alert(
     'Perfil salvo'
@@ -646,7 +708,7 @@ function criarUsuario(){
 
   });
 
-  salvarUsuarios();
+  salvarStorage();
 
   renderizarUsuarios();
 
@@ -715,17 +777,28 @@ function removerUsuario(index){
 
   usuarios.splice(index,1);
 
-  salvarUsuarios();
+  salvarStorage();
 
   renderizarUsuarios();
 }
 
-function salvarUsuarios(){
+/* ========================= */
+/* STORAGE */
+/* ========================= */
+
+function salvarStorage(){
 
   localStorage.setItem(
     'usuarios',
     JSON.stringify(
       usuarios
+    )
+  );
+
+  localStorage.setItem(
+    'planejamentos',
+    JSON.stringify(
+      planejamentos
     )
   );
 }

@@ -18,6 +18,18 @@
     --danger: #EF4444;
 }
 
+.dark {
+
+    --bg: #0F172A;
+    --surface: #1E293B;
+
+    --text: #F8FAFC;
+
+    --muted: #CBD5E1;
+
+    --border: #334155;
+}
+
 * {
     margin: 0;
     padding: 0;
@@ -34,6 +46,55 @@ body {
             #7C3AED);
 
     min-height: 100vh;
+
+    color: var(--text);
+
+    transition: .2s;
+}
+
+/* LOADING */
+
+#loadingScreen {
+
+    position: fixed;
+
+    inset: 0;
+
+    background: #0F172A;
+
+    display: flex;
+
+    flex-direction: column;
+
+    align-items: center;
+    justify-content: center;
+
+    z-index: 9999;
+
+    color: white;
+}
+
+.loader {
+
+    width: 70px;
+    height: 70px;
+
+    border-radius: 50%;
+
+    border: 6px solid rgba(255, 255, 255, .2);
+
+    border-top: 6px solid white;
+
+    animation: spin 1s linear infinite;
+
+    margin-bottom: 20px;
+}
+
+@keyframes spin {
+
+    to {
+        transform: rotate(360deg);
+    }
 }
 
 /* LOGIN */
@@ -43,7 +104,7 @@ body {
     width: 100%;
     max-width: 460px;
 
-    background: white;
+    background: var(--surface);
 
     border-radius: 28px;
 
@@ -72,16 +133,34 @@ body {
 
     font-size: 36px;
 
-    color: var(--text);
-
     margin-bottom: 10px;
 }
 
 .logo p {
 
     color: var(--muted);
+}
 
-    font-size: 15px;
+.demo-users {
+
+    margin-top: 30px;
+
+    background: var(--bg);
+
+    padding: 18px;
+
+    border-radius: 18px;
+
+    display: flex;
+
+    flex-direction: column;
+
+    gap: 8px;
+}
+
+.demo-users small {
+
+    color: var(--muted);
 }
 
 /* FORM */
@@ -113,6 +192,10 @@ body {
     border-radius: 14px;
 
     border: 1px solid var(--border);
+
+    background: var(--surface);
+
+    color: var(--text);
 
     font-size: 15px;
 }
@@ -166,7 +249,7 @@ button:hover {
 
     width: 280px;
 
-    background: white;
+    background: var(--surface);
 
     position: fixed;
 
@@ -196,7 +279,7 @@ button:hover {
 
     gap: 14px;
 
-    background: #F8FAFC;
+    background: var(--bg);
 
     padding: 16px;
 
@@ -222,8 +305,6 @@ button:hover {
 
     color: white;
 
-    font-size: 24px;
-
     overflow: hidden;
 }
 
@@ -237,9 +318,7 @@ button:hover {
 
 #sidebarPerfil {
 
-    color: #64748B;
-
-    font-size: 14px;
+    color: var(--muted);
 
     margin-top: 4px;
 }
@@ -278,7 +357,7 @@ button:hover {
 
 #subtitulo {
 
-    color: #64748B;
+    color: var(--muted);
 
     margin-top: 6px;
 }
@@ -322,7 +401,7 @@ button:hover {
 
 .card {
 
-    background: white;
+    background: var(--surface);
 
     padding: 24px;
 
@@ -341,15 +420,37 @@ button:hover {
     margin-top: 14px;
 }
 
+/* TABLE */
+
+table {
+
+    width: 100%;
+
+    border-collapse: collapse;
+}
+
+th,
+td {
+
+    padding: 16px;
+
+    border-bottom: 1px solid var(--border);
+
+    text-align: left;
+}
+
+th {
+
+    color: var(--muted);
+}
+
+/* BADGES */
+
 .badge {
 
     display: inline-block;
 
     padding: 8px 14px;
-
-    background: #DCFCE7;
-
-    color: #166534;
 
     border-radius: 999px;
 
@@ -370,30 +471,6 @@ button:hover {
     background: #DCFCE7;
 
     color: #166534;
-}
-
-/* TABLE */
-
-table {
-
-    width: 100%;
-
-    border-collapse: collapse;
-}
-
-th,
-td {
-
-    padding: 16px;
-
-    border-bottom: 1px solid #E2E8F0;
-
-    text-align: left;
-}
-
-th {
-
-    color: #64748B;
 }
 
 /* MODAL */
@@ -426,7 +503,7 @@ th {
 
     max-width: 95%;
 
-    background: white;
+    background: var(--surface);
 
     border-radius: 24px;
 
@@ -460,13 +537,13 @@ th {
     margin-bottom: 24px;
 }
 
-/* COMENTÁRIO */
+/* COMMENT */
 
 .comentario {
 
-    background: #F8FAFC;
+    background: var(--bg);
 
-    border: 1px solid #E2E8F0;
+    border: 1px solid var(--border);
 
     border-radius: 18px;
 
@@ -475,7 +552,20 @@ th {
     margin-top: 18px;
 }
 
-/* ACTION BUTTON */
+/* USER CARD */
+
+.usuario-card {
+
+    padding: 18px;
+
+    border: 1px solid var(--border);
+
+    border-radius: 18px;
+
+    margin-top: 16px;
+}
+
+/* BUTTONS */
 
 .action-btn {
 
@@ -498,17 +588,49 @@ th {
     background: var(--success);
 }
 
-/* USER CARD */
+/* PROGRESS */
 
-.usuario-card {
+.progress-area {
 
-    padding: 18px;
+    margin-top: 24px;
+}
 
-    border: 1px solid #E2E8F0;
+.progress-card {
+
+    background: var(--bg);
+
+    padding: 24px;
 
     border-radius: 18px;
+}
+
+.progress-bar {
+
+    width: 100%;
+
+    height: 18px;
+
+    background: #CBD5E1;
+
+    border-radius: 999px;
+
+    overflow: hidden;
 
     margin-top: 16px;
+}
+
+.progress-fill {
+
+    width: 0%;
+
+    height: 100%;
+
+    background:
+        linear-gradient(135deg,
+            #10B981,
+            #2563EB);
+
+    transition: .3s;
 }
 
 /* RESPONSIVO */
@@ -529,6 +651,11 @@ th {
         margin-left: 0;
     }
 
+    .cards {
+
+        grid-template-columns: 1fr;
+    }
+
     .topbar {
 
         flex-direction: column;
@@ -536,11 +663,6 @@ th {
         align-items: flex-start;
 
         gap: 20px;
-    }
-
-    .cards {
-
-        grid-template-columns: 1fr;
     }
 
     table {

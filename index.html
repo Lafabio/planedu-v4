@@ -8,7 +8,7 @@
 <meta name="viewport"
 content="width=device-width, initial-scale=1.0">
 
-<title>PlanEdu V7</title>
+<title>PlanEdu V8</title>
 
 <link rel="stylesheet"
 href="style.css">
@@ -20,6 +20,18 @@ rel="stylesheet">
 
 <body>
 
+<!-- LOADING -->
+
+<div id="loadingScreen">
+
+  <div class="loader"></div>
+
+  <p>
+    Carregando PlanEdu...
+  </p>
+
+</div>
+
 <!-- LOGIN -->
 
 <div class="container"
@@ -28,11 +40,11 @@ id="loginBox">
   <div class="logo">
 
     <h1>
-      📚 PlanEdu V7
+      📚 PlanEdu V8
     </h1>
 
     <p>
-      Plataforma Institucional SESI
+      Plataforma Inteligente SESI
     </p>
 
   </div>
@@ -65,13 +77,43 @@ id="loginBox">
     Entrar
   </button>
 
+  <div class="demo-users">
+
+    <p>
+      Usuários demo:
+    </p>
+
+    <small>
+
+      professor@sesi.sc.edu.br
+
+    </small>
+
+    <small>
+
+      coordenador@sesi.sc.edu.br
+
+    </small>
+
+    <small>
+
+      admin@sesi.sc.edu.br
+
+    </small>
+
+    <small>
+
+      senha: 123456
+
+    </small>
+
+  </div>
+
 </div>
 
 <!-- DASHBOARD -->
 
 <div id="dashboard">
-
-  <!-- SIDEBAR -->
 
   <aside class="sidebar">
 
@@ -140,6 +182,12 @@ id="loginBox">
 
       </button>
 
+      <button onclick="toggleDarkMode()">
+
+        🌙 Dark Mode
+
+      </button>
+
       <button onclick="logout()">
 
         🚪 Sair
@@ -149,8 +197,6 @@ id="loginBox">
     </div>
 
   </aside>
-
-  <!-- MAIN -->
 
   <main class="main">
 
@@ -219,6 +265,38 @@ id="loginBox">
           id="totalPendentes">
 
             0
+
+          </div>
+
+        </div>
+
+      </div>
+
+      <!-- GRÁFICO -->
+
+      <div class="card"
+      style="margin-top:30px;">
+
+        <h2>
+          📊 Progresso Pedagógico
+        </h2>
+
+        <div class="progress-area">
+
+          <div class="progress-card">
+
+            <span>
+              Planejamentos aprovados
+            </span>
+
+            <div class="progress-bar">
+
+              <div class="progress-fill"
+              id="progressFill">
+
+              </div>
+
+            </div>
 
           </div>
 
@@ -422,9 +500,10 @@ id="loginBox">
 
 </div>
 
-<!-- MODAL PLANEJAMENTO -->
+<!-- MODAL -->
 
-<div id="modal">
+<div id="modal"
+class="modal-hidden">
 
   <div class="modal-box">
 
