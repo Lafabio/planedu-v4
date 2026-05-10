@@ -8,7 +8,7 @@
 <meta name="viewport"
 content="width=device-width, initial-scale=1.0">
 
-<title>PlanEdu V5</title>
+<title>PlanEdu V6</title>
 
 <link rel="stylesheet"
 href="style.css">
@@ -28,7 +28,7 @@ id="loginBox">
   <div class="logo">
 
     <h1>
-      📚 PlanEdu V5
+      📚 PlanEdu V6
     </h1>
 
     <p>
@@ -71,31 +71,71 @@ id="loginBox">
 
 <div id="dashboard">
 
+  <!-- SIDEBAR -->
+
   <aside class="sidebar">
 
-    <h2>
-      📚 PlanEdu
-    </h2>
+    <div>
+
+      <h2>
+        📚 PlanEdu
+      </h2>
+
+      <div class="user-box">
+
+        <div class="avatar">
+
+          👤
+
+        </div>
+
+        <div>
+
+          <strong id="sidebarNome">
+            Usuário
+          </strong>
+
+          <p id="sidebarPerfil">
+            Perfil
+          </p>
+
+        </div>
+
+      </div>
+
+    </div>
 
     <div class="menu">
 
-      <button>
+      <button onclick="abrirTela('dashboardTela')">
+
         🏠 Dashboard
+
       </button>
 
-      <button>
+      <button onclick="abrirTela('planejamentoTela')">
+
         📝 Planejamentos
+
       </button>
 
-      <button id="coordBtn">
+      <button id="coordBtn"
+      onclick="abrirTela('coordTela')">
 
         📋 Coordenação
 
       </button>
 
-      <button id="adminBtn">
+      <button id="adminBtn"
+      onclick="abrirTela('adminTela')">
 
         ⚙️ Administração
+
+      </button>
+
+      <button onclick="abrirTela('perfilTela')">
+
+        👤 Meu Perfil
 
       </button>
 
@@ -109,131 +149,256 @@ id="loginBox">
 
   </aside>
 
+  <!-- MAIN -->
+
   <main class="main">
 
-    <div class="topbar">
+    <!-- DASHBOARD -->
 
-      <div>
+    <section id="dashboardTela"
+    class="tela">
 
-        <h1 id="titulo">
-          Dashboard
+      <div class="topbar">
+
+        <div>
+
+          <h1 id="titulo">
+            Dashboard
+          </h1>
+
+          <p id="subtitulo">
+
+            Bem-vindo
+
+          </p>
+
+        </div>
+
+      </div>
+
+      <div class="cards">
+
+        <div class="card">
+
+          <h3>
+            Planejamentos
+          </h3>
+
+          <div class="big"
+          id="totalPlanejamentos">
+
+            0
+
+          </div>
+
+        </div>
+
+        <div class="card">
+
+          <h3>
+            Usuários
+          </h3>
+
+          <div class="big">
+
+            3
+
+          </div>
+
+        </div>
+
+        <div class="card">
+
+          <h3>
+            Status
+          </h3>
+
+          <span class="badge">
+
+            Sistema Online
+
+          </span>
+
+        </div>
+
+      </div>
+
+    </section>
+
+    <!-- PLANEJAMENTO -->
+
+    <section id="planejamentoTela"
+    class="tela hidden">
+
+      <div class="topbar">
+
+        <h1>
+          📝 Planejamentos
         </h1>
 
-        <p id="subtitulo">
+        <button onclick="abrirModal()">
 
-          Bem-vindo
+          ➕ Novo Planejamento
+
+        </button>
+
+      </div>
+
+      <div class="card">
+
+        <table>
+
+          <thead>
+
+            <tr>
+
+              <th>
+                Disciplina
+              </th>
+
+              <th>
+                Turma
+              </th>
+
+              <th>
+                Semana
+              </th>
+
+              <th>
+                Status
+              </th>
+
+              <th>
+                Ações
+              </th>
+
+            </tr>
+
+          </thead>
+
+          <tbody id="listaPlanejamentos">
+
+          </tbody>
+
+        </table>
+
+      </div>
+
+    </section>
+
+    <!-- COORDENAÇÃO -->
+
+    <section id="coordTela"
+    class="tela hidden">
+
+      <div class="card">
+
+        <h2>
+          💬 Coordenação Pedagógica
+        </h2>
+
+        <div class="comentario">
+
+          <strong>
+            Coordenação
+          </strong>
+
+          <p>
+
+            Revisar habilidades da turma 201.
+
+          </p>
+
+        </div>
+
+      </div>
+
+    </section>
+
+    <!-- ADMIN -->
+
+    <section id="adminTela"
+    class="tela hidden">
+
+      <div class="card">
+
+        <h2>
+          ⚙️ Administração
+        </h2>
+
+        <p style="
+          margin-top:14px;
+          color:#64748B;
+        ">
+
+          Painel administrativo em evolução.
 
         </p>
 
       </div>
 
-      <button onclick="abrirModal()">
+    </section>
 
-        ➕ Novo Planejamento
+    <!-- PERFIL -->
 
-      </button>
-
-    </div>
-
-    <!-- CARDS -->
-
-    <div class="cards">
+    <section id="perfilTela"
+    class="tela hidden">
 
       <div class="card">
 
-        <h3>
-          Planejamentos
-        </h3>
+        <h2>
+          👤 Meu Perfil
+        </h2>
 
-        <div class="big"
-        id="totalPlanejamentos">
+        <div class="perfil-grid">
 
-          0
+          <div class="field">
 
-        </div>
+            <label>
+              Nome
+            </label>
 
-      </div>
+            <input
+            type="text"
+            id="perfilNome">
 
-      <div class="card">
+          </div>
 
-        <h3>
-          Usuários
-        </h3>
+          <div class="field">
 
-        <div class="big">
-
-          3
-
-        </div>
-
-      </div>
-
-      <div class="card">
-
-        <h3>
-          Status
-        </h3>
-
-        <span class="badge">
-
-          Sistema Online
-
-        </span>
-
-      </div>
-
-    </div>
-
-    <!-- PLANEJAMENTOS -->
-
-    <div class="card"
-    style="margin-top:30px;">
-
-      <h2 style="
-        margin-bottom:24px;
-      ">
-
-        📝 Planejamentos Semanais
-
-      </h2>
-
-      <table>
-
-        <thead>
-
-          <tr>
-
-            <th>
+            <label>
               Disciplina
-            </th>
+            </label>
 
-            <th>
-              Turma
-            </th>
+            <input
+            type="text"
+            id="perfilDisciplina">
 
-            <th>
-              Semana
-            </th>
+          </div>
 
-            <th>
-              Status
-            </th>
+          <div class="field">
 
-            <th>
-              Ações
-            </th>
+            <label>
+              Horário
+            </label>
 
-          </tr>
+            <input
+            type="text"
+            id="perfilHorario">
 
-        </thead>
+          </div>
 
-        <tbody id="listaPlanejamentos">
+        </div>
 
-        </tbody>
+        <button onclick="salvarPerfil()">
 
-      </table>
+          💾 Salvar Perfil
 
-    </div>
+        </button>
+
+      </div>
+
+    </section>
 
   </main>
 
