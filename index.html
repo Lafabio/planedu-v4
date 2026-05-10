@@ -8,7 +8,7 @@
 <meta name="viewport"
 content="width=device-width, initial-scale=1.0">
 
-<title>PlanEdu V6</title>
+<title>PlanEdu V7</title>
 
 <link rel="stylesheet"
 href="style.css">
@@ -28,7 +28,7 @@ id="loginBox">
   <div class="logo">
 
     <h1>
-      📚 PlanEdu V6
+      📚 PlanEdu V7
     </h1>
 
     <p>
@@ -83,7 +83,8 @@ id="loginBox">
 
       <div class="user-box">
 
-        <div class="avatar">
+        <div class="avatar"
+        id="avatarPreview">
 
           👤
 
@@ -119,15 +120,15 @@ id="loginBox">
 
       </button>
 
-      <button id="coordBtn"
-      onclick="abrirTela('coordTela')">
+      <button onclick="abrirTela('coordTela')"
+      id="coordBtn">
 
         📋 Coordenação
 
       </button>
 
-      <button id="adminBtn"
-      onclick="abrirTela('adminTela')">
+      <button onclick="abrirTela('adminTela')"
+      id="adminBtn">
 
         ⚙️ Administração
 
@@ -196,12 +197,13 @@ id="loginBox">
         <div class="card">
 
           <h3>
-            Usuários
+            Aprovados
           </h3>
 
-          <div class="big">
+          <div class="big"
+          id="totalAprovados">
 
-            3
+            0
 
           </div>
 
@@ -210,14 +212,15 @@ id="loginBox">
         <div class="card">
 
           <h3>
-            Status
+            Pendentes
           </h3>
 
-          <span class="badge">
+          <div class="big"
+          id="totalPendentes">
 
-            Sistema Online
+            0
 
-          </span>
+          </div>
 
         </div>
 
@@ -225,7 +228,7 @@ id="loginBox">
 
     </section>
 
-    <!-- PLANEJAMENTO -->
+    <!-- PLANEJAMENTOS -->
 
     <section id="planejamentoTela"
     class="tela hidden">
@@ -269,6 +272,10 @@ id="loginBox">
               </th>
 
               <th>
+                Professor
+              </th>
+
+              <th>
                 Ações
               </th>
 
@@ -293,21 +300,15 @@ id="loginBox">
 
       <div class="card">
 
-        <h2>
-          💬 Coordenação Pedagógica
-        </h2>
+        <div class="topbar">
 
-        <div class="comentario">
+          <h2>
+            📋 Coordenação Pedagógica
+          </h2>
 
-          <strong>
-            Coordenação
-          </strong>
+        </div>
 
-          <p>
-
-            Revisar habilidades da turma 201.
-
-          </p>
+        <div id="listaCoordenacao">
 
         </div>
 
@@ -322,18 +323,23 @@ id="loginBox">
 
       <div class="card">
 
-        <h2>
-          ⚙️ Administração
-        </h2>
+        <div class="topbar">
 
-        <p style="
-          margin-top:14px;
-          color:#64748B;
-        ">
+          <h2>
+            ⚙️ Administração
+          </h2>
 
-          Painel administrativo em evolução.
+          <button onclick="abrirUsuarioModal()">
 
-        </p>
+            ➕ Novo Usuário
+
+          </button>
+
+        </div>
+
+        <div id="usuariosLista">
+
+        </div>
 
       </div>
 
@@ -388,6 +394,18 @@ id="loginBox">
 
           </div>
 
+          <div class="field">
+
+            <label>
+              Foto Perfil
+            </label>
+
+            <input
+            type="file"
+            id="perfilFoto">
+
+          </div>
+
         </div>
 
         <button onclick="salvarPerfil()">
@@ -404,7 +422,7 @@ id="loginBox">
 
 </div>
 
-<!-- MODAL -->
+<!-- MODAL PLANEJAMENTO -->
 
 <div id="modal">
 
@@ -472,6 +490,79 @@ id="loginBox">
     <button onclick="salvarPlanejamento()">
 
       💾 Salvar Planejamento
+
+    </button>
+
+  </div>
+
+</div>
+
+<!-- MODAL USUÁRIO -->
+
+<div id="usuarioModal"
+class="modal-hidden">
+
+  <div class="modal-box">
+
+    <div class="modal-top">
+
+      <h2>
+        Novo Usuário
+      </h2>
+
+      <button onclick="fecharUsuarioModal()">
+        ✖
+      </button>
+
+    </div>
+
+    <div class="field">
+
+      <label>
+        Nome
+      </label>
+
+      <input
+      type="text"
+      id="novoNome">
+
+    </div>
+
+    <div class="field">
+
+      <label>
+        E-mail
+      </label>
+
+      <input
+      type="email"
+      id="novoEmail">
+
+    </div>
+
+    <div class="field">
+
+      <label>
+        Perfil
+      </label>
+
+      <select id="novoPerfil">
+
+        <option value="professor">
+          Professor
+        </option>
+
+        <option value="coordenador">
+          Coordenador
+        </option>
+
+      </select>
+
+    </div>
+
+    <button onclick="criarUsuario()">
+
+      💾 Criar Usuário
 
     </button>
 

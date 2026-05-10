@@ -1,4 +1,6 @@
-const usuarios = [
+let usuarios = JSON.parse(
+  localStorage.getItem('usuarios')
+) || [
 
   {
     email:'professor@sesi.sc.edu.br',
@@ -25,7 +27,11 @@ const usuarios = [
 
 let usuarioAtual = null;
 
-let planejamentos = [];
+let planejamentos = JSON.parse(
+  localStorage.getItem(
+    'planejamentos'
+  )
+) || [];
 
 /* ========================= */
 /* LOGIN */
@@ -109,9 +115,15 @@ function iniciarDashboard(usuario){
     ).style.display = 'none';
   }
 
-  carregarPlanejamentos();
-
   carregarPerfil();
+
+  renderizarPlanejamentos();
+
+  renderizarUsuarios();
+
+  atualizarDashboard();
+
+  renderizarCoordenacao();
 }
 
 function logout(){
@@ -162,6 +174,24 @@ function fecharModal(){
   ).style.display = 'none';
 }
 
+function abrirUsuarioModal(){
+
+  document.getElementById(
+    'usuarioModal'
+  ).classList.remove(
+    'modal-hidden'
+  );
+}
+
+function fecharUsuarioModal(){
+
+  document.getElementById(
+    'usuarioModal'
+  ).classList.add(
+    'modal-hidden'
+  );
+}
+
 /* ========================= */
 /* PLANEJAMENTOS */
 /* ========================= */
@@ -208,16 +238,21 @@ function salvarPlanejamento(){
     turma,
     semana,
     conteudo,
-    status:'Em análise',
 
-    criadoPor:
-    usuarioAtual.nome
+    professor:
+    usuarioAtual.nome,
+
+    status:'Pendente'
 
   });
 
-  salvarLocalStorage();
+  salvarPlanejamentos();
 
   renderizarPlanejamentos();
+
+  atualizarDashboard();
+
+  renderizarCoordenacao();
 
   limparCampos();
 
@@ -234,6 +269,15 @@ function renderizarPlanejamentos(){
   lista.innerHTML = '';
 
   planejamentos.forEach((p,index)=>{
+
+    let badgeClass =
+    'badge-warning';
+
+    if(p.status === 'Aprovado'){
+
+      badgeClass =
+      'badge-success';
+    }
 
     lista.innerHTML += `
 
@@ -253,7 +297,10 @@ function renderizarPlanejamentos(){
 
         <td>
 
-          <span class="badge">
+          <span class="
+            badge
+            ${badgeClass}
+          ">
 
             ${p.status}
 
@@ -262,10 +309,19 @@ function renderizarPlanejamentos(){
         </td>
 
         <td>
+          ${p.professor}
+        </td>
+
+        <td>
 
           <button
-          class="action-btn delete-btn"
-          onclick="removerPlanejamento(${index})">
+          class="
+            action-btn
+            delete-btn
+          "
+          onclick="
+            removerPlanejamento(${index})
+          ">
 
             Excluir
 
@@ -277,20 +333,19 @@ function renderizarPlanejamentos(){
 
     `;
   });
-
-  document.getElementById(
-    'totalPlanejamentos'
-  ).innerText =
-  planejamentos.length;
 }
 
 function removerPlanejamento(index){
 
   planejamentos.splice(index,1);
 
-  salvarLocalStorage();
+  salvarPlanejamentos();
 
   renderizarPlanejamentos();
+
+  atualizarDashboard();
+
+  renderizarCoordenacao();
 }
 
 function limparCampos(){
@@ -312,11 +367,7 @@ function limparCampos(){
   ).value = '';
 }
 
-/* ========================= */
-/* STORAGE */
-/* ========================= */
-
-function salvarLocalStorage(){
+function salvarPlanejamentos(){
 
   localStorage.setItem(
     'planejamentos',
@@ -326,20 +377,120 @@ function salvarLocalStorage(){
   );
 }
 
-function carregarPlanejamentos(){
+/* ========================= */
+/* DASHBOARD */
+/* ========================= */
 
-  const dados =
-  localStorage.getItem(
-    'planejamentos'
+function atualizarDashboard(){
+
+  document.getElementById(
+    'totalPlanejamentos'
+  ).innerText =
+  planejamentos.length;
+
+  const aprovados =
+  planejamentos.filter(p=>
+
+    p.status === 'Aprovado'
+
+  ).length;
+
+  const pendentes =
+  planejamentos.filter(p=>
+
+    p.status === 'Pendente'
+
+  ).length;
+
+  document.getElementById(
+    'totalAprovados'
+  ).innerText =
+  aprovados;
+
+  document.getElementById(
+    'totalPendentes'
+  ).innerText =
+  pendentes;
+}
+
+/* ========================= */
+/* COORDENAÇÃO */
+/* ========================= */
+
+function renderizarCoordenacao(){
+
+  const lista =
+  document.getElementById(
+    'listaCoordenacao'
   );
 
-  if(dados){
+  lista.innerHTML = '';
 
-    planejamentos =
-    JSON.parse(dados);
+  planejamentos.forEach((p,index)=>{
 
-    renderizarPlanejamentos();
-  }
+    lista.innerHTML += `
+
+      <div class="comentario">
+
+        <strong>
+
+          ${p.professor}
+
+        </strong>
+
+        <p style="
+          margin-top:10px;
+        ">
+
+          ${p.disciplina}
+          •
+          ${p.turma}
+
+        </p>
+
+        <p style="
+          margin-top:10px;
+          color:#64748B;
+        ">
+
+          ${p.conteudo}
+
+        </p>
+
+        <button
+        class="
+          action-btn
+          approve-btn
+        "
+        style="
+          margin-top:16px;
+        "
+        onclick="
+          aprovarPlanejamento(${index})
+        ">
+
+          Aprovar
+
+        </button>
+
+      </div>
+
+    `;
+  });
+}
+
+function aprovarPlanejamento(index){
+
+  planejamentos[index].status =
+  'Aprovado';
+
+  salvarPlanejamentos();
+
+  renderizarPlanejamentos();
+
+  atualizarDashboard();
+
+  renderizarCoordenacao();
 }
 
 /* ========================= */
@@ -366,6 +517,33 @@ function salvarPerfil(){
     ).value
 
   };
+
+  const foto =
+  document.getElementById(
+    'perfilFoto'
+  ).files[0];
+
+  if(foto){
+
+    const reader =
+    new FileReader();
+
+    reader.onload = e=>{
+
+      localStorage.setItem(
+        'perfilFoto',
+        e.target.result
+      );
+
+      atualizarAvatar(
+        e.target.result
+      );
+    };
+
+    reader.readAsDataURL(
+      foto
+    );
+  }
 
   localStorage.setItem(
     'perfil',
@@ -404,4 +582,150 @@ function carregarPerfil(){
     ).value =
     dados.horario || '';
   }
+
+  const foto =
+  localStorage.getItem(
+    'perfilFoto'
+  );
+
+  if(foto){
+
+    atualizarAvatar(foto);
+  }
+}
+
+function atualizarAvatar(foto){
+
+  document.getElementById(
+    'avatarPreview'
+  ).innerHTML = `
+
+    <img src="${foto}">
+  `;
+}
+
+/* ========================= */
+/* USUÁRIOS */
+/* ========================= */
+
+function criarUsuario(){
+
+  const nome =
+  document.getElementById(
+    'novoNome'
+  ).value;
+
+  const email =
+  document.getElementById(
+    'novoEmail'
+  ).value;
+
+  const role =
+  document.getElementById(
+    'novoPerfil'
+  ).value;
+
+  if(
+    !nome ||
+    !email
+  ){
+
+    alert(
+      'Preencha os campos'
+    );
+
+    return;
+  }
+
+  usuarios.push({
+
+    nome,
+    email,
+    role,
+    senha:'123456'
+
+  });
+
+  salvarUsuarios();
+
+  renderizarUsuarios();
+
+  fecharUsuarioModal();
+}
+
+function renderizarUsuarios(){
+
+  const lista =
+  document.getElementById(
+    'usuariosLista'
+  );
+
+  lista.innerHTML = '';
+
+  usuarios.forEach((u,index)=>{
+
+    lista.innerHTML += `
+
+      <div class="usuario-card">
+
+        <strong>
+          ${u.nome}
+        </strong>
+
+        <p style="
+          margin-top:10px;
+        ">
+
+          ${u.email}
+
+        </p>
+
+        <p style="
+          margin-top:6px;
+          color:#64748B;
+        ">
+
+          ${u.role}
+
+        </p>
+
+        <button
+        class="
+          action-btn
+          delete-btn
+        "
+        style="
+          margin-top:16px;
+        "
+        onclick="
+          removerUsuario(${index})
+        ">
+
+          Remover
+
+        </button>
+
+      </div>
+
+    `;
+  });
+}
+
+function removerUsuario(index){
+
+  usuarios.splice(index,1);
+
+  salvarUsuarios();
+
+  renderizarUsuarios();
+}
+
+function salvarUsuarios(){
+
+  localStorage.setItem(
+    'usuarios',
+    JSON.stringify(
+      usuarios
+    )
+  );
 }
