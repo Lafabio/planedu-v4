@@ -19,13 +19,13 @@
 // Cole aqui os dados do seu projeto (Configurações → Seus apps → Web)
 // ============================================================
 const FIREBASE_CONFIG = {
-  apiKey:            "COLOQUE_SUA_API_KEY",
+  apiKey:            "AIzaSyArnDiS6_e9O1hCXy95bTXQP1WMS8Jxc9o",
   authDomain:        "planedu-sesi.firebaseapp.com",
   databaseURL:       "https://planedu-sesi-default-rtdb.firebaseio.com",
   projectId:         "planedu-sesi",
-  storageBucket:     "planedu-sesi.appspot.com",
-  messagingSenderId: "COLOQUE_SEU_MESSAGING_ID",
-  appId:             "COLOQUE_SEU_APP_ID"
+  storageBucket:     "planedu-sesi.firebasestorage.app",
+  messagingSenderId: "608731664867",
+  appId:             "1:608731664867:web:f2b8e5a923ee64ae3850d6"
 };
 firebase.initializeApp(FIREBASE_CONFIG);
 const rtdb = firebase.database();
@@ -1657,8 +1657,8 @@ async function fazerLogin() {
   try {
     await ensureAuth();
 
-    // Manutenção (pode ficar local ou buscar no Firestore)
-    const manutPwd = (await _fsGet('manutencao_senha')) || S.get('manutencao_senha') || 'manut@2025';
+    // Manutenção
+    const manutPwd = (await _dbGet('manutencao_senha')) || S.get('manutencao_senha') || 'manut@2025';
     _cache['manutencao_senha'] = manutPwd;
     if ((usr===MANUTENCAO.usuario || usr===MANUTENCAO.email) && pwd===manutPwd) {
       usuarioLogado = { ...MANUTENCAO };
@@ -1818,12 +1818,11 @@ function iniciarApp() {
   } else if (tipo === 'manutencao') {
     mostrarPaginaManutencao();
   } else {
-    // Professor: listener no próprio planejamento para detectar feedback do coord
-    _fsListen('plan_'+usuarioLogado.usuario, (val) => {
+    // Professor: listener em tempo real no planejamento para detectar feedback do coord
+    _dbListen('plan_'+usuarioLogado.usuario, (val) => {
       if (val && typeof val === 'object') {
         planejamentos = val;
         try { localStorage.setItem('plan_'+usuarioLogado.usuario, JSON.stringify(val)); } catch {}
-        // Re-renderiza semana atual se estiver visível
         if (semanaAtual >= 0 && typeof renderizarSemana === 'function') {
           try { renderizarSemana(semanaAtual); } catch {}
         }
