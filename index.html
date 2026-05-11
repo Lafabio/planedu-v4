@@ -9,6 +9,239 @@
 <script src="https://unpkg.com/html-docx-js/dist/html-docx.js"></script>
 <script src="https://apis.google.com/js/api.js" async defer></script>
 <script src="https://accounts.google.com/gsi/client" async defer></script>
+<!-- Firebase SDK (Realtime Database — plano gratuito) -->
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+<script>
+// ============================================================
+// FIREBASE CONFIG
+// Cole aqui os dados do seu projeto (Configurações → Seus apps → Web)
+// ============================================================
+const FIREBASE_CONFIG = {
+  apiKey:            "COLOQUE_SUA_API_KEY",
+  authDomain:        "planedu-sesi.firebaseapp.com",
+  databaseURL:       "https://planedu-sesi-default-rtdb.firebaseio.com",
+  projectId:         "planedu-sesi",
+  storageBucket:     "planedu-sesi.appspot.com",
+  messagingSenderId: "COLOQUE_SEU_MESSAGING_ID",
+  appId:             "COLOQUE_SEU_APP_ID"
+};
+firebase.initializeApp(FIREBASE_CONFIG);
+const rtdb = firebase.database();
+const auth = firebase.auth();
+
+// ============================================================
+// ============================================================
+// CAMADA DE SINCRONIZAÇÃO — Realtime Database (plano gratuito)
+// Estrutura de nós:
+//   /usuarios/{usuario}       — perfil
+//   /senhas/{usuario}/hash    — senha
+//   /planejamentos/{usuario}  — planejamentos
+//   /horarios/{usuario}       — horário ativo
+//   /histHorarios/{usuario}   — histórico de horários
+//   /discCustom/{usuario}     — disciplinas personalizadas
+//   /msgs/{usuario}           — mensagens
+//   /coordInbox               — inbox da coordenação
+//   /chat/{chatKey}           — chat prof↔coord
+//   /coordVisitas/{chave}     — visitas/ok da coordenação
+//   /recSenha/{usuario}       — tokens de recuperação
+//   /config/{chave}           — configurações globais
+//   /fotos/{usuario}          — foto de perfil
+// ============================================================
+
+const _cache = {};
+const _listeners = {};
+
+// Converte chave localStorage → caminho RTDB
+function _rtdbPath(key) {
+  if (key === 'sessao' || key === 'lembrado' || key === 'theme') return null;
+  if (key === 'manutencao_senha')     return 'senhas/manutencao/hash';
+  if (key.startsWith('usuario_'))     return 'usuarios/'     + key.slice(8);
+  if (key.startsWith('senha_'))       return 'senhas/'       + key.slice(6) + '/hash';
+  if (key.startsWith('plan_'))        return 'planejamentos/'+ key.slice(5);
+  if (key.startsWith('horario_'))     return 'horarios/'     + key.slice(8);
+  if (key.startsWith('histHorario_')) return 'histHorarios/' + key.slice(12);
+  if (key.startsWith('discCustom_'))  return 'discCustom/'   + key.slice(11);
+  if (key.startsWith('msgs_'))        return 'msgs/'         + key.slice(5);
+  if (key === 'coord_inbox')          return 'coordInbox';
+  if (key.startsWith('chat_'))        return 'chat/'         + key.slice(5).replace(/[^a-zA-Z0-9_-]/g,'_');
+  if (key.startsWith('coordVisita_')) return 'coordVisitas/' + key.slice(12).replace(/[^a-zA-Z0-9_-]/g,'_');
+  if (key.startsWith('rec_'))         return 'recSenha/'     + key.slice(4);
+  if (key.startsWith('dataInicio_'))  return 'config/'       + key;
+  if (key.startsWith('apikey_'))      return 'config/'       + key;
+  if (key.startsWith('foto_'))        return 'fotos/'        + key.slice(5);
+  return 'config/' + key.replace(/[^a-zA-Z0-9_-]/g,'_');
+}
+
+function _sanitize(v) {
+  if (v === undefined || v === null) return null;
+  return JSON.parse(JSON.stringify(v, (k2, val) => val === undefined ? null : val));
+}
+function _wrap(v)   { return (typeof v === 'object' && v !== null) ? v : { __v: String(v ?? '') }; }
+function _unwrap(v) {
+  if (v === null || v === undefined) return null;
+  if (typeof v === 'object' && '__v' in v) return v.__v;
+  return v;
+}
+
+async function _dbSet(key, value) {
+  const path = _rtdbPath(key);
+  if (!path) return;
+  try { await rtdb.ref(path).set(_sanitize(_wrap(value))); }
+  catch(e) { console.warn('rtdb set:', key, e.message); }
+}
+
+async function _dbGet(key) {
+  const path = _rtdbPath(key);
+  if (!path) return null;
+  try {
+    const snap = await rtdb.ref(path).get();
+    return snap.exists() ? _unwrap(snap.val()) : null;
+  } catch(e) { console.warn('rtdb get:', key, e.message); return null; }
+}
+
+async function _dbDel(key) {
+  const path = _rtdbPath(key);
+  if (!path) return;
+  try { await rtdb.ref(path).remove(); }
+  catch(e) { console.warn('rtdb del:', key, e.message); }
+}
+
+function _dbListen(key, callback) {
+  const path = _rtdbPath(key);
+  if (!path) return;
+  if (_listeners[key]) { rtdb.ref(_listeners[key].path).off('value', _listeners[key].fn); }
+  const fn = snap => {
+    const val = snap.exists() ? _unwrap(snap.val()) : null;
+    _cache[key] = val;
+    try { localStorage.setItem(key, typeof val === 'object' ? JSON.stringify(val) : String(val ?? '')); } catch {}
+    callback(val);
+  };
+  rtdb.ref(path).on('value', fn, e => console.warn('rtdb listen:', key, e.message));
+  _listeners[key] = { path, fn };
+}
+
+function _dbUnlisten(key) {
+  if (!_listeners[key]) return;
+  rtdb.ref(_listeners[key].path).off('value', _listeners[key].fn);
+  delete _listeners[key];
+}
+
+// ============================================================
+// OBJETO S HÍBRIDO — API idêntica ao localStorage original
+// ============================================================
+const S = {
+  get(k) {
+    if (k in _cache) {
+      const v = _cache[k];
+      return (v !== null && typeof v === 'object') ? JSON.stringify(v) : (v === null ? null : String(v));
+    }
+    try { return localStorage.getItem(k); } catch { return null; }
+  },
+  set(k, v) {
+    _cache[k] = v;
+    try { localStorage.setItem(k, v); } catch {}
+    _dbSet(k, v);
+  },
+  del(k) {
+    delete _cache[k];
+    try { localStorage.removeItem(k); } catch {}
+    _dbDel(k);
+  },
+  len()  { try { return localStorage.length; } catch { return 0; } },
+  key(i) { try { return localStorage.key(i); } catch { return null; } },
+  getObj(k) {
+    if (k in _cache) {
+      const v = _cache[k];
+      if (v === null || v === undefined) return null;
+      if (typeof v === 'object') return v;
+      try { return JSON.parse(String(v)); } catch { return null; }
+    }
+    const v = this.get(k);
+    try { return v ? JSON.parse(v) : null; } catch { return null; }
+  },
+  setObj(k, v) {
+    _cache[k] = v;
+    try { localStorage.setItem(k, JSON.stringify(v)); } catch {}
+    _dbSet(k, v);
+  }
+};
+
+// ============================================================
+// PREFETCH
+// ============================================================
+async function prefetchUsuario(usuario) {
+  const chaves = [
+    'plan_'+usuario, 'horario_'+usuario, 'histHorario_'+usuario,
+    'discCustom_'+usuario, 'msgs_'+usuario, 'dataInicio_'+usuario, 'foto_'+usuario
+  ];
+  await Promise.all(chaves.map(async k => {
+    const v = await _dbGet(k);
+    if (v !== null) {
+      _cache[k] = v;
+      try { localStorage.setItem(k, typeof v === 'object' ? JSON.stringify(v) : String(v)); } catch {}
+    }
+  }));
+}
+
+async function prefetchTodosUsuarios() {
+  try {
+    const snap = await rtdb.ref('usuarios').get();
+    if (!snap.exists()) return;
+    snap.forEach(child => {
+      const u = child.val();
+      _cache['usuario_'+child.key] = u;
+      try { localStorage.setItem('usuario_'+child.key, JSON.stringify(u)); } catch {}
+    });
+  } catch(e) { console.warn('prefetch usuarios:', e.message); }
+}
+
+// ============================================================
+// AUTENTICAÇÃO ANÔNIMA
+// ============================================================
+async function ensureAuth() {
+  if (auth.currentUser) return;
+  try { await auth.signInAnonymously(); } catch(e) { console.warn('auth:', e.message); }
+}
+
+// ============================================================
+// LISTENERS EM TEMPO REAL
+// ============================================================
+function iniciarListenerInbox() {
+  _dbListen('coord_inbox', val => {
+    _cache['coord_inbox'] = Array.isArray(val) ? val : (val && typeof val === 'object' ? Object.values(val) : []);
+    try { localStorage.setItem('coord_inbox', JSON.stringify(_cache['coord_inbox'])); } catch {}
+    if (typeof renderInboxCoordenador === 'function') { try { renderInboxCoordenador(); } catch {} }
+  });
+}
+
+function iniciarListenerMsgs(usuario) {
+  _dbListen('msgs_'+usuario, val => {
+    const msgs = Array.isArray(val) ? val : (val && typeof val === 'object' ? Object.values(val) : []);
+    _cache['msgs_'+usuario] = msgs;
+    try { localStorage.setItem('msgs_'+usuario, JSON.stringify(msgs)); } catch {}
+    if (typeof verificarMensagensNaoLidas === 'function') { try { verificarMensagensNaoLidas(); } catch {} }
+  });
+}
+
+// Monitor de conexão nativo do RTDB
+rtdb.ref('.info/connected').on('value', snap => {
+  const el = document.getElementById('fbStatus');
+  if (!el) return;
+  el.style.display = '';
+  if (snap.val() === true) {
+    el.textContent = '\u{1F7E2} Online';
+    el.style.background = '#d1fae5';
+    el.style.color = '#065f46';
+  } else {
+    el.textContent = '\u{1F534} Offline';
+    el.style.background = '#fee2e2';
+    el.style.color = '#991b1b';
+  }
+});
+
+</script>
 <style>
 /* ===== DESIGN TOKENS ===== */
 :root {
@@ -873,6 +1106,9 @@ h1, h2, h3, h4 { font-weight: 700; letter-spacing: -0.025em; line-height: 1.3; }
         💬<span id="notifCount" class="notif-dot hidden">0</span>
       </button>
 
+      <!-- Status Firebase -->
+      <span id="fbStatus" title="Status da sincronização" style="font-size:.7rem;padding:3px 8px;border-radius:99px;background:#d1fae5;color:#065f46;font-weight:700;display:none;">🟢 Online</span>
+
       <!-- Perfil -->
       <div class="header-sep"></div>
       <div class="header-user" onclick="abrirEditarPerfil()">
@@ -1345,17 +1581,11 @@ let ctxIA             = { semana:null, dia:null, aula:null };
 let msgDestinoAtual   = null;
 
 // ============================================================
-// STORAGE
+// STORAGE — objeto S definido no bloco Firebase acima
+// Mantém API idêntica: S.get/set/del/getObj/setObj
+// Dados são espelhados em localStorage (para iteração legada)
+// e sincronizados com Firestore em tempo real.
 // ============================================================
-const S = {
-  get:    k => { try { return localStorage.getItem(k); } catch { return null; } },
-  set:    (k,v) => { try { localStorage.setItem(k,v); } catch {} },
-  del:    k => { try { localStorage.removeItem(k); } catch {} },
-  len:    () => { try { return localStorage.length; } catch { return 0; } },
-  key:    i => { try { return localStorage.key(i); } catch { return null; } },
-  getObj: k => { const v=S.get(k); try { return v ? JSON.parse(v) : null; } catch { return null; } },
-  setObj: (k,v) => S.set(k, JSON.stringify(v))
-};
 
 // ============================================================
 // TOAST
@@ -1415,38 +1645,75 @@ function mostrarPrimeiroAcesso() {
   document.getElementById('primeiroAcessoForm').classList.remove('hidden');
 }
 
-function fazerLogin() {
+async function fazerLogin() {
   const usr = document.getElementById('loginUsuario').value.trim();
   const pwd = document.getElementById('loginSenha').value;
   if (!usr || !pwd) { toast('Preencha usuário e senha','error'); return; }
 
-  // Manutenção
-  const manutPwd = S.get('manutencao_senha') || 'manut@2025';
-  if ((usr===MANUTENCAO.usuario || usr===MANUTENCAO.email) && pwd===manutPwd) {
-    usuarioLogado = { ...MANUTENCAO };
-    S.setObj('sessao', usuarioLogado);
-    iniciarApp(); return;
-  }
+  // Mostrar indicador de loading
+  const btnLogin = document.querySelector('#loginForm .btn-primary');
+  if (btnLogin) { btnLogin.disabled = true; btnLogin.textContent = '🔄 Verificando...'; }
 
-  // Busca por usuário ou email
-  const perfil = S.getObj('usuario_'+usr) || buscarPorEmail(usr);
-  if (!perfil) { toast('Usuário não encontrado','error'); return; }
+  try {
+    await ensureAuth();
 
-  const senhaAtual = S.get('senha_'+perfil.usuario);
-  if (!senhaAtual || senhaAtual !== pwd) { toast('Senha incorreta','error'); return; }
+    // Manutenção (pode ficar local ou buscar no Firestore)
+    const manutPwd = (await _fsGet('manutencao_senha')) || S.get('manutencao_senha') || 'manut@2025';
+    _cache['manutencao_senha'] = manutPwd;
+    if ((usr===MANUTENCAO.usuario || usr===MANUTENCAO.email) && pwd===manutPwd) {
+      usuarioLogado = { ...MANUTENCAO };
+      S.setObj('sessao', usuarioLogado);
+      await prefetchTodosUsuarios();
+      iniciarApp(); return;
+    }
 
-  // Verifica primeiro acesso
-  if (perfil.primeiroAcesso) {
+    // Buscar perfil do RTDB
+    let perfil = null;
+    // Tenta pelo login direto
+    const snapDireto = await rtdb.ref('usuarios/'+usr).get();
+    if (snapDireto.exists()) {
+      perfil = snapDireto.val();
+      _cache['usuario_'+usr] = perfil;
+      try { localStorage.setItem('usuario_'+usr, JSON.stringify(perfil)); } catch {}
+    } else {
+      // Busca por email — faz prefetch de todos e filtra
+      await prefetchTodosUsuarios();
+      perfil = buscarPorEmail(usr);
+    }
+    if (!perfil) { toast('Usuário não encontrado','error'); return; }
+
+    // Verificar senha no RTDB
+    const senhaSnap = await rtdb.ref('senhas/'+perfil.usuario+'/hash').get();
+    const senhaAtual = senhaSnap.exists() ? senhaSnap.val() : null;
+    if (!senhaAtual || senhaAtual !== pwd) { toast('Senha incorreta','error'); return; }
+    _cache['senha_'+perfil.usuario] = senhaAtual;
+
+    // Primeiro acesso?
+    if (perfil.primeiroAcesso) {
+      usuarioLogado = perfil;
+      mostrarPrimeiroAcesso();
+      return;
+    }
+
     usuarioLogado = perfil;
-    mostrarPrimeiroAcesso();
-    return;
-  }
+    if (document.getElementById('lembrarUsuario').checked) S.set('lembrado', usr);
+    else S.del('lembrado');
+    S.setObj('sessao', usuarioLogado);
 
-  usuarioLogado = perfil;
-  if (document.getElementById('lembrarUsuario').checked) S.set('lembrado', usr);
-  else S.del('lembrado');
-  S.setObj('sessao', usuarioLogado);
-  iniciarApp();
+    // Prefetch dados do usuário do Firestore
+    toast('Carregando dados...','info', 1500);
+    await prefetchUsuario(perfil.usuario);
+    if (perfil.tipo === 'coordenador' || perfil.tipo === 'manutencao') {
+      await prefetchTodosUsuarios();
+    }
+
+    iniciarApp();
+  } catch(e) {
+    console.error('Login error:', e);
+    toast('Erro ao fazer login: '+e.message,'error');
+  } finally {
+    if (btnLogin) { btnLogin.disabled = false; btnLogin.textContent = 'Entrar'; }
+  }
 }
 
 function confirmarPrimeiroAcesso() {
@@ -1466,6 +1733,14 @@ function confirmarPrimeiroAcesso() {
 }
 
 function buscarPorEmail(email) {
+  // Busca no cache (_cache tem os dados do Firestore)
+  for (const k in _cache) {
+    if (k.startsWith('usuario_')) {
+      const u = _cache[k];
+      if (u && typeof u === 'object' && (u.email===email || u.usuario===email)) return u;
+    }
+  }
+  // Fallback: localStorage (para dados legados ou offline)
   for (let i=0; i<S.len(); i++) {
     const k = S.key(i);
     if (k && k.startsWith('usuario_')) {
@@ -1534,10 +1809,26 @@ function iniciarApp() {
   atualizarInterface();
   verificarMensagensNaoLidas();
   const tipo = usuarioLogado.tipo;
-  if (tipo==='coordenador') {
+
+  // Ativar listeners em tempo real
+  iniciarListenerMsgs(usuarioLogado.usuario);
+  if (tipo === 'coordenador') {
+    iniciarListenerInbox();
     mostrarPaginaCoordenador();
-  } else if (tipo==='manutencao') {
+  } else if (tipo === 'manutencao') {
     mostrarPaginaManutencao();
+  } else {
+    // Professor: listener no próprio planejamento para detectar feedback do coord
+    _fsListen('plan_'+usuarioLogado.usuario, (val) => {
+      if (val && typeof val === 'object') {
+        planejamentos = val;
+        try { localStorage.setItem('plan_'+usuarioLogado.usuario, JSON.stringify(val)); } catch {}
+        // Re-renderiza semana atual se estiver visível
+        if (semanaAtual >= 0 && typeof renderizarSemana === 'function') {
+          try { renderizarSemana(semanaAtual); } catch {}
+        }
+      }
+    });
   }
 }
 
@@ -1774,11 +2065,26 @@ function ativarTabManut(btn,panelId){ativarTabManutPage(btn,panelId);}
 
 function listarUsuarios() {
   const users = [];
-  for (let i=0;i<S.len();i++) {
-    const k=S.key(i);
-    if (k&&k.startsWith('usuario_')) {
-      const u=S.getObj(k);
-      if (u) users.push(u);
+  const seen = new Set();
+  // Prioritiza cache do Firestore
+  for (const k in _cache) {
+    if (k.startsWith('usuario_')) {
+      const u = _cache[k];
+      if (u && typeof u === 'object' && u.usuario && !seen.has(u.usuario)) {
+        seen.add(u.usuario);
+        users.push(u);
+      }
+    }
+  }
+  // Complementa com localStorage se necessário
+  for (let i=0; i<S.len(); i++) {
+    const k = S.key(i);
+    if (k && k.startsWith('usuario_')) {
+      const u = S.getObj(k);
+      if (u && u.usuario && !seen.has(u.usuario)) {
+        seen.add(u.usuario);
+        users.push(u);
+      }
     }
   }
   return users;
@@ -3522,42 +3828,97 @@ function enviarChatCoord() {
 // ============================================================
 // INIT
 // ============================================================
-document.addEventListener('DOMContentLoaded',()=>{
+document.addEventListener('DOMContentLoaded', async () => {
   carregarTema();
 
-  // Seed coordenador padrão se ainda não existir
-  if (!S.getObj('usuario_'+COORDENADOR_SEED.usuario)) {
-    S.setObj('usuario_'+COORDENADOR_SEED.usuario, COORDENADOR_SEED);
-    S.set('senha_'+COORDENADOR_SEED.usuario, SENHA_COORDENADOR_PADRAO);
+  // Mostrar splash de carregamento
+  const splash = document.createElement('div');
+  splash.id = 'fbSplash';
+  splash.style.cssText = 'position:fixed;inset:0;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:9999;gap:16px;';
+  splash.innerHTML = '<div style="font-size:2rem;">📚</div><div style="font-weight:700;font-size:1.1rem;color:var(--text);">PlanEdu</div><div style="color:var(--text-soft);font-size:.85rem;">Conectando ao servidor...</div>';
+  document.body.appendChild(splash);
+
+  try {
+    await ensureAuth();
+
+    // Seed coordenador padrão no Firestore se não existir
+    const coordSnap = await rtdb.ref('usuarios/'+COORDENADOR_SEED.usuario).get();
+    if (!coordSnap.exists()) {
+      await rtdb.ref('usuarios/'+COORDENADOR_SEED.usuario).set(COORDENADOR_SEED);
+      await rtdb.ref('senhas/'+COORDENADOR_SEED.usuario+'/hash').set(SENHA_COORDENADOR_PADRAO);
+      _cache['usuario_'+COORDENADOR_SEED.usuario] = COORDENADOR_SEED;
+      _cache['senha_'+COORDENADOR_SEED.usuario] = SENHA_COORDENADOR_PADRAO;
+    } else {
+      // Garante cache local
+      _cache['usuario_'+COORDENADOR_SEED.usuario] = coordSnap.val();
+      try { localStorage.setItem('usuario_'+COORDENADOR_SEED.usuario, JSON.stringify(coordSnap.val())); } catch {}
+    }
+
+    // Restaurar sessão (da localStorage — só local)
+    const sessao = S.getObj('sessao');
+    if (sessao) {
+      if (sessao.tipo === 'manutencao') {
+        usuarioLogado = sessao;
+        splash.remove();
+        iniciarApp();
+        _setupEventListeners();
+        return;
+      }
+      // Buscar perfil atualizado do RTDB
+      const snapPerfil = await rtdb.ref('usuarios/'+sessao.usuario).get();
+      if (snapPerfil.exists()) {
+        usuarioLogado = snapPerfil.val();
+        _cache['usuario_'+sessao.usuario] = usuarioLogado;
+        try { localStorage.setItem('usuario_'+sessao.usuario, JSON.stringify(usuarioLogado)); } catch {}
+        S.setObj('sessao', usuarioLogado);
+        await prefetchUsuario(sessao.usuario);
+        if (usuarioLogado.tipo === 'coordenador') await prefetchTodosUsuarios();
+        splash.remove();
+        iniciarApp();
+        _setupEventListeners();
+        return;
+      }
+      S.del('sessao');
+    }
+  } catch(e) {
+    console.error('Init error:', e);
+    // Se Firebase falhar, tenta modo offline com localStorage
+    const sessao = S.getObj('sessao');
+    if (sessao) {
+      const perfil = S.getObj('usuario_'+sessao.usuario);
+      if (perfil) { usuarioLogado = perfil; splash.remove(); iniciarApp(); _setupEventListeners(); return; }
+    }
+    toast('⚠️ Modo offline — dados locais','warn', 5000);
   }
 
-  const sessao=S.getObj('sessao');
-  if(sessao){
-    if(sessao.tipo==='manutencao'){usuarioLogado=sessao;iniciarApp();return;}
-    const perfil=S.getObj('usuario_'+sessao.usuario);
-    if(perfil){usuarioLogado=perfil;iniciarApp();return;}
-    S.del('sessao');
-  }
-
-  const lembrado=S.get('lembrado');
-  if(lembrado){
-    document.getElementById('loginUsuario').value=lembrado;
-    document.getElementById('lembrarUsuario').checked=true;
+  splash.remove();
+  const lembrado = S.get('lembrado');
+  if (lembrado) {
+    document.getElementById('loginUsuario').value = lembrado;
+    document.getElementById('lembrarUsuario').checked = true;
   }
   mostrarLogin();
-
-  // Enter no login
-  document.getElementById('loginSenha').addEventListener('keydown',e=>{if(e.key==='Enter')fazerLogin();});
-  document.getElementById('loginUsuario').addEventListener('keydown',e=>{if(e.key==='Enter')fazerLogin();});
-
-  document.getElementById('inicioLetivo').addEventListener('change',function(){gerarSemanas(this.value);});
-
-  // Salvar API keys automaticamente ao digitar
-  document.getElementById('geminiApiKey').addEventListener('change',function(){S.set('apikey_gemini',this.value.trim());});
-  document.getElementById('groqApiKey').addEventListener('change',function(){S.set('apikey_groq',this.value.trim());});
+  _setupEventListeners();
 });
 
-console.log('✅ PlanEdu v4.0 — Multi-perfil carregado');
+function _setupEventListeners() {
+  // Enter no login
+  const sl = document.getElementById('loginSenha');
+  const ul = document.getElementById('loginUsuario');
+  if (sl) sl.addEventListener('keydown', e => { if(e.key==='Enter') fazerLogin(); });
+  if (ul) ul.addEventListener('keydown', e => { if(e.key==='Enter') fazerLogin(); });
+
+  const il = document.getElementById('inicioLetivo');
+  if (il) il.addEventListener('change', function(){ gerarSemanas(this.value); });
+
+  // Salvar API keys automaticamente ao digitar
+  const gk = document.getElementById('geminiApiKey');
+  const qk = document.getElementById('groqApiKey');
+  if (gk) gk.addEventListener('change', function(){ S.set('apikey_gemini', this.value.trim()); });
+  if (qk) qk.addEventListener('change', function(){ S.set('apikey_groq', this.value.trim()); });
+}
+
+console.log('✅ PlanEdu v6.0 — Firebase Realtime Database + Tempo Real');
 
 // ============================================================
 // COORDINATOR OK / VISIT FUNCTIONS
