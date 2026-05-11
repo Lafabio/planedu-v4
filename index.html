@@ -9,6 +9,10 @@
 <script src="https://unpkg.com/html-docx-js/dist/html-docx.js"></script>
 <script src="https://apis.google.com/js/api.js" async defer></script>
 <script src="https://accounts.google.com/gsi/client" async defer></script>
+<!-- Firebase SDK -->
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
 <style>
 /* ===== DESIGN TOKENS ===== */
 :root {
@@ -1345,17 +1349,304 @@ let ctxIA             = { semana:null, dia:null, aula:null };
 let msgDestinoAtual   = null;
 
 // ============================================================
-// STORAGE
+// FIREBASE CONFIGURATION - BACKEND EM TEMPO REAL
 // ============================================================
-const S = {
-  get:    k => { try { return localStorage.getItem(k); } catch { return null; } },
-  set:    (k,v) => { try { localStorage.setItem(k,v); } catch {} },
-  del:    k => { try { localStorage.removeItem(k); } catch {} },
-  len:    () => { try { return localStorage.length; } catch { return 0; } },
-  key:    i => { try { return localStorage.key(i); } catch { return null; } },
-  getObj: k => { const v=S.get(k); try { return v ? JSON.parse(v) : null; } catch { return null; } },
-  setObj: (k,v) => S.set(k, JSON.stringify(v))
+// INSTRUÇÕES: Substitua com suas credenciais do Firebase Console
+// 1. Acesse https://console.firebase.google.com/
+// 2. Crie um novo projeto
+// 3. Em Project Settings, copie as configurações do SDK
+// 4. Ative o Realtime Database e Authentication (Email/Senha)
+const firebaseConfig = {
+  apiKey: "SUA_API_KEY_AQUI",
+  authDomain: "SEU_PROJETO.firebaseapp.com",
+  databaseURL: "https://SEU_PROJETO-default-rtdb.firebaseio.com",
+  projectId: "SEU_PROJETO",
+  storageBucket: "SEU_PROJETO.appspot.com",
+  messagingSenderId: "SEU_SENDER_ID",
+  appId: "SEU_APP_ID"
 };
+
+let firebaseApp = null;
+let db = null;
+let auth = null;
+let firebaseEnabled = false;
+
+function initFirebase() {
+  try {
+    if (firebaseConfig.apiKey === "SUA_API_KEY_AQUI") {
+      console.log('Firebase não configurado - usando apenas localStorage');
+      return false;
+    }
+    firebaseApp = firebase.initializeApp(firebaseConfig);
+    db = firebase.database();
+    auth = firebase.auth();
+    firebaseEnabled = true;
+    console.log('✅ Firebase inicializado com sucesso!');
+    return true;
+  } catch (e) {
+    console.error('Erro ao inicializar Firebase:', e);
+    return false;
+  }
+}
+
+// Storage unificado: tenta Firebase, fallback para localStorage
+const S = {
+  get: k => {
+    if (!firebaseEnabled) {
+      try { return localStorage.getItem(k); } catch { return null; }
+    }
+    let cached = null;
+    try { cached = localStorage.getItem(k); } catch {}
+    return cached;
+  },
+  set: (k, v) => {
+    // Sempre salva no localStorage primeiro (para performance)
+    try { localStorage.setItem(k, v); } catch {}
+    
+    // Se Firebase estiver ativo, sincroniza com a nuvem
+    if (firebaseEnabled && db) {
+      const updates = {};
+      updates['users/' + (usuarioLogado?.usuario || 'anon') + '/data/' + k] = v;
+      db.ref().update(updates).catch(e => console.log('Sync Firebase falhou:', e));
+    }
+  },
+  del: k => {
+    try { localStorage.removeItem(k); } catch {}
+    if (firebaseEnabled && db) {
+      db.ref('users/' + (usuarioLogado?.usuario || 'anon') + '/data/' + k).remove().catch(e => {});
+    }
+  },
+  len: () => {
+    try { return localStorage.length; } catch { return 0; }
+  },
+  key: i => {
+    try { return localStorage.key(i); } catch { return null; }
+  },
+  getObj: k => {
+    const v = S.get(k);
+    try { return v ? JSON.parse(v) : null; } catch { return null; }
+  },
+  setObj: (k, v) => S.set(k, JSON.stringify(v)),
+  
+  // Nova função: carregar dados do Firebase quando usuário logar
+  loadFromFirebase: async (userKey) => {
+    if (!firebaseEnabled || !db) return false;
+    try {
+      const snapshot = await db.ref('users/' + userKey + '/data').once('value');
+      const data = snapshot.val();
+      if (data) {
+        Object.keys(data).forEach(k => {
+          try { localStorage.setItem(k, data[k]); } catch {}
+        });
+        return true;
+      }
+      return false;
+    } catch (e) {
+      console.log('Erro ao carregar do Firebase:', e);
+      return false;
+    }
+  },
+  
+  // Salvar todos os dados locais no Firebase
+  saveToFirebase: async (userKey) => {
+    if (!firebaseEnabled || !db) return false;
+    try {
+      const updates = {};
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (k) {
+          updates['users/' + userKey + '/data/' + k] = localStorage.getItem(k);
+        }
+      }
+      await db.ref().update(updates);
+      return true;
+    } catch (e) {
+      console.log('Erro ao salvar no Firebase:', e);
+      return false;
+    }
+  }
+};
+
+// ============================================================
+// GOOGLE DRIVE SYNC
+// ============================================================
+let gapiLoaded = false;
+let googleAuth = null;
+let driveEnabled = false;
+const DRIVE_FOLDER_NAME = 'PlanEdu_Backup';
+let driveFolderId = null;
+
+function initGoogleDrive() {
+  return new Promise((resolve) => {
+    if (gapiLoaded) { resolve(true); return; }
+    
+    const script = document.createElement('script');
+    script.src = 'https://apis.google.com/js/api.js';
+    script.onload = () => {
+      gapi.load('client:auth2', async () => {
+        try {
+          await gapi.client.init({
+            apiKey: 'AIzaSyDUMMY_KEY_FOR_DEMO',
+            clientId: 'YOUR_CLIENT_ID.apps.googleusercontent.com',
+            scope: 'https://www.googleapis.com/auth/drive.file',
+            discoveryDocs: ['https://www.googleapis.com/discovery/v1/apis/drive/v3/rest']
+          });
+          gapiLoaded = true;
+          resolve(true);
+        } catch (e) {
+          console.log('Google Drive não configurado - usando apenas localStorage');
+          resolve(false);
+        }
+      });
+    };
+    document.head.appendChild(script);
+  });
+}
+
+async function enableDriveSync() {
+  if (!gapiLoaded) {
+    const initialized = await initGoogleDrive();
+    if (!initialized) {
+      toast('Configure as credenciais do Google Drive no código','error');
+      return false;
+    }
+  }
+  
+  try {
+    await gapi.auth2.getAuthInstance().signIn();
+    driveEnabled = true;
+    
+    // Buscar ou criar pasta PlanEdu_Backup
+    const folder = await findOrCreateDriveFolder();
+    driveFolderId = folder.id;
+    
+    toast('✅ Sincronização com Google Drive ativada!','success');
+    return true;
+  } catch (e) {
+    console.error(e);
+    toast('Erro ao ativar Google Drive','error');
+    return false;
+  }
+}
+
+async function findOrCreateDriveFolder() {
+  const response = await gapi.client.drive.files.list({
+    q: `mimeType='application/vnd.google-apps.folder' and name='${DRIVE_FOLDER_NAME}' and trashed=false`,
+    spaces: 'drive',
+    fields: 'files(id, name)'
+  });
+  
+  let files = response.result.files;
+  if (!files || files.length === 0) {
+    const folder = await gapi.client.drive.files.create({
+      resource: {
+        name: DRIVE_FOLDER_NAME,
+        mimeType: 'application/vnd.google-apps.folder'
+      },
+      fields: 'id'
+    });
+    return folder.result;
+  }
+  return files[0];
+}
+
+async function syncToDrive(data) {
+  if (!driveEnabled) return false;
+  
+  try {
+    const fileName = 'planedu_data_' + new Date().toISOString().split('T')[0] + '.json';
+    
+    // Buscar arquivo existente
+    const response = await gapi.client.drive.files.list({
+      q: `name='${fileName}' and '${driveFolderId}' in parents and trashed=false`,
+      spaces: 'drive',
+      fields: 'files(id, name)'
+    });
+    
+    let files = response.result.files;
+    const mediaBody = JSON.stringify(data, null, 2);
+    
+    if (files && files.length > 0) {
+      // Atualizar arquivo existente
+      await gapi.client.drive.files.update({
+        fileId: files[0].id,
+        media: {
+          mimeType: 'application/json',
+          body: mediaBody
+        }
+      });
+    } else {
+      // Criar novo arquivo
+      await gapi.client.drive.files.create({
+        resource: {
+          name: fileName,
+          parents: [driveFolderId],
+          mimeType: 'application/json'
+        },
+        media: {
+          mimeType: 'application/json',
+          body: mediaBody
+        }
+      });
+    }
+    
+    toast('📁 Dados sincronizados com Google Drive!','success');
+    return true;
+  } catch (e) {
+    console.error('Erro na sincronização:', e);
+    toast('Erro ao sincronizar com Drive','error');
+    return false;
+  }
+}
+
+async function loadFromDrive() {
+  if (!driveEnabled) return null;
+  
+  try {
+    const folder = await findOrCreateDriveFolder();
+    driveFolderId = folder.id;
+    
+    const response = await gapi.client.drive.files.list({
+      q: `name contains 'planedu_data_' and '${driveFolderId}' in parents and trashed=false`,
+      spaces: 'drive',
+      fields: 'files(id, name, modifiedTime)',
+      orderBy: 'modifiedTime desc'
+    });
+    
+    const files = response.result.files;
+    if (!files || files.length === 0) {
+      toast('Nenhum backup encontrado no Google Drive','info');
+      return null;
+    }
+    
+    const latestFile = files[0];
+    const content = await gapi.client.drive.files.get({
+      fileId: latestFile.id,
+      alt: 'media'
+    });
+    
+    toast(`📥 Dados carregados do Drive (${latestFile.name})`,'success');
+    return content.result;
+  } catch (e) {
+    console.error('Erro ao carregar do Drive:', e);
+    toast('Erro ao carregar do Google Drive','error');
+    return null;
+  }
+}
+
+async function importFromDrive() {
+  const data = await loadFromDrive();
+  if (!data) return;
+  
+  if (!confirm('Isso irá SOBRESCREVER os dados locais atuais. Continuar?')) return;
+  
+  Object.keys(data).forEach(k => {
+    localStorage.setItem(k, data[k]);
+  });
+  
+  toast('Dados importados com sucesso! Recarregando...','success');
+  setTimeout(() => location.reload(), 1500);
+}
 
 // ============================================================
 // TOAST
@@ -1415,7 +1706,7 @@ function mostrarPrimeiroAcesso() {
   document.getElementById('primeiroAcessoForm').classList.remove('hidden');
 }
 
-function fazerLogin() {
+async function fazerLogin() {
   const usr = document.getElementById('loginUsuario').value.trim();
   const pwd = document.getElementById('loginSenha').value;
   if (!usr || !pwd) { toast('Preencha usuário e senha','error'); return; }
@@ -1425,12 +1716,27 @@ function fazerLogin() {
   if ((usr===MANUTENCAO.usuario || usr===MANUTENCAO.email) && pwd===manutPwd) {
     usuarioLogado = { ...MANUTENCAO };
     S.setObj('sessao', usuarioLogado);
+    await syncFromCloud(MANUTENCAO.usuario);
     iniciarApp(); return;
   }
 
   // Busca por usuário ou email
   const perfil = S.getObj('usuario_'+usr) || buscarPorEmail(usr);
-  if (!perfil) { toast('Usuário não encontrado','error'); return; }
+  if (!perfil) { 
+    // Tenta buscar do Firebase se não encontrou localmente
+    if (firebaseEnabled) {
+      const loaded = await S.loadFromFirebase(usr);
+      if (loaded) {
+        const perfilRetry = S.getObj('usuario_'+usr) || buscarPorEmail(usr);
+        if (perfilRetry) {
+          toast('📥 Dados carregados da nuvem!','success');
+          return fazerLogin(); // Re-tenta o login
+        }
+      }
+    }
+    toast('Usuário não encontrado','error'); 
+    return; 
+  }
 
   const senhaAtual = S.get('senha_'+perfil.usuario);
   if (!senhaAtual || senhaAtual !== pwd) { toast('Senha incorreta','error'); return; }
@@ -1446,10 +1752,14 @@ function fazerLogin() {
   if (document.getElementById('lembrarUsuario').checked) S.set('lembrado', usr);
   else S.del('lembrado');
   S.setObj('sessao', usuarioLogado);
+  
+  // Sincroniza dados da nuvem para este dispositivo
+  await syncFromCloud(perfil.usuario);
+  
   iniciarApp();
 }
 
-function confirmarPrimeiroAcesso() {
+async function confirmarPrimeiroAcesso() {
   const pwd  = document.getElementById('paSenha').value;
   const pwd2 = document.getElementById('paSenha2').value;
   if (pwd.length < 6) { toast('Mínimo 6 caracteres','error'); return; }
@@ -1461,6 +1771,10 @@ function confirmarPrimeiroAcesso() {
   S.setObj('usuario_'+usuarioLogado.usuario, perfil);
   usuarioLogado = perfil;
   S.setObj('sessao', perfil);
+  
+  // Salva dados iniciais na nuvem
+  await syncToCloud(usuarioLogado.usuario);
+  
   toast('Senha definida! Bem-vindo(a)!','success');
   iniciarApp();
 }
@@ -1554,9 +1868,13 @@ function carregarDados() {
   if (data) { document.getElementById('inicioLetivo').value = data; gerarSemanas(data); }
 }
 
-function salvarDados() {
+async function salvarDados() {
   if (!usuarioLogado) return;
   S.setObj('plan_'+usuarioLogado.usuario, planejamentos);
+  // Auto-sync para nuvem (silencioso)
+  if (firebaseEnabled && db) {
+    await S.saveToFirebase(usuarioLogado.usuario).catch(e => {});
+  }
 }
 
 function atualizarInterface() {
@@ -1940,6 +2258,11 @@ function renderManutPgSistema() {
     if(S.get('horario_'+u.usuario)) comHorario++;
     if(S.get('plan_'+u.usuario)) comPlan++;
   });
+  
+  const firebaseStatus = firebaseEnabled 
+    ? '<span style="color:var(--success)">✅ Conectado ao Firebase</span>' 
+    : '<span style="color:var(--text-soft)">❌ Firebase não configurado</span>';
+  
   c.innerHTML = `<div class="card">
     <div class="section-title">📊 Estatísticas</div>
     <div class="stats-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:24px;">
@@ -1948,10 +2271,23 @@ function renderManutPgSistema() {
       <div class="stat-card"><div class="stat-num">${comHorario}</div><div class="stat-lbl">Com horário</div></div>
       <div class="stat-card"><div class="stat-num">${comPlan}</div><div class="stat-lbl">Com planejamentos</div></div>
     </div>
+    
+    <div class="section-title">☁️ Sincronização em Nuvem</div>
+    <div class="info-box" style="margin-bottom:16px;font-size:.85rem;">
+      ${firebaseStatus}<br>
+      <small>Os dados dos usuários são sincronizados automaticamente entre dispositivos quando o Firebase está configurado.</small>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:20px;">
+      <button class="btn btn-primary btn-sm" onclick="configurarFirebase()" title="Configurar Firebase">⚙️ Configurar Nuvem</button>
+      <button class="btn btn-success btn-sm" onclick="syncAllUsersToCloud()" title="Forçar sincronização de todos os usuários">🔄 Sincronizar Tudo</button>
+    </div>
+    
     <div class="section-title">🗄️ Backup e Dados</div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;">
       <button class="btn btn-success btn-sm" onclick="exportarBackup()">📥 Exportar backup</button>
       <button class="btn btn-ghost btn-sm" onclick="importarBackup()">📤 Importar backup</button>
+      <button class="btn btn-coord btn-sm" onclick="enableDriveSync()" title="Sincronizar com Google Drive">☁️ Google Drive</button>
+      <button class="btn btn-maint btn-sm" onclick="importFromDrive()" title="Importar do Google Drive">⬇️ Baixar do Drive</button>
     </div>
   </div>`;
 }
@@ -2000,9 +2336,14 @@ function removerUsuario(usr) {
   toast(`Usuário ${usr} removido`,'success');
 }
 
-function exportarBackup() {
+function exportarBackup(autoSync = false) {
   const dados={};
   for(let i=0;i<S.len();i++){const k=S.key(i);if(k)dados[k]=S.get(k);}
+  
+  if (autoSync) {
+    return dados;
+  }
+  
   const blob=new Blob([JSON.stringify(dados,null,2)],{type:'application/json'});
   const a=document.createElement('a');
   a.href=URL.createObjectURL(blob);
@@ -2010,6 +2351,98 @@ function exportarBackup() {
   document.body.appendChild(a);a.click();document.body.removeChild(a);
   toast('Backup exportado!','success');
 }
+
+// Funções de sincronização com Firebase/nuvem
+async function syncToCloud(userKey) {
+  if (!firebaseEnabled || !db) return false;
+  try {
+    await S.saveToFirebase(userKey);
+    console.log('Dados sincronizados para nuvem:', userKey);
+    return true;
+  } catch (e) {
+    console.error('Erro ao sincronizar:', e);
+    return false;
+  }
+}
+
+async function syncFromCloud(userKey) {
+  if (!firebaseEnabled || !db) return false;
+  try {
+    const loaded = await S.loadFromFirebase(userKey);
+    if (loaded) {
+      console.log('Dados carregados da nuvem:', userKey);
+      toast('📥 Dados sincronizados da nuvem!','success');
+    }
+    return loaded;
+  } catch (e) {
+    console.error('Erro ao carregar da nuvem:', e);
+    return false;
+  }
+}
+
+async function syncAllUsersToCloud() {
+  if (!firebaseEnabled) {
+    toast('Configure o Firebase primeiro','error');
+    return;
+  }
+  
+  const users = listarUsuarios();
+  let count = 0;
+  for (const u of users) {
+    try {
+      await S.saveToFirebase(u.usuario);
+      count++;
+    } catch (e) {
+      console.log('Falha ao sincronizar', u.usuario, e);
+    }
+  }
+  toast(`✅ ${count}/${users.length} usuários sincronizados!`,'success');
+}
+
+function configurarFirebase() {
+  const configStr = JSON.stringify(firebaseConfig, null, 2);
+  const instructions = `INSTRUÇÕES PARA CONFIGURAR O FIREBASE:
+
+1. Acesse https://console.firebase.google.com/
+2. Crie um novo projeto (ou use um existente)
+3. Em Project Settings > General, role até "Your apps" e clique no ícone Web </>
+4. Registre o app e copie as configurações do SDK
+5. No seu projeto Firebase:
+   - Ative o Realtime Database (em Build > Realtime Database)
+   - Configure as regras de segurança para permitir leitura/escrita autenticada
+   - Ative Authentication > Sign-in method > Email/Password
+
+Substitua as credenciais no código (linhas ~1359-1367):
+${configStr}`;
+
+  alert(instructions);
+  
+  // Abre modal de configuração (implementação simplificada via prompt)
+  const newApiKey = prompt('Cole sua Firebase API Key:', firebaseConfig.apiKey === 'SUA_API_KEY_AQUI' ? '' : firebaseConfig.apiKey);
+  if (newApiKey) {
+    firebaseConfig.apiKey = newApiKey;
+    const authDomain = prompt('Auth Domain:', firebaseConfig.authDomain);
+    const databaseURL = prompt('Database URL:', firebaseConfig.databaseURL);
+    const projectId = prompt('Project ID:', firebaseConfig.projectId);
+    
+    if (authDomain && databaseURL && projectId) {
+      firebaseConfig.authDomain = authDomain;
+      firebaseConfig.databaseURL = databaseURL;
+      firebaseConfig.projectId = projectId;
+      
+      // Tenta inicializar
+      if (initFirebase()) {
+        toast('✅ Firebase configurado com sucesso!','success');
+        renderManutPgSistema();
+      } else {
+        toast('Erro ao inicializar Firebase. Verifique as credenciais.','error');
+      }
+    }
+  }
+}
+
+// Auto-sync para Google Drive (opcional - descomente para ativar)
+// setInterval(() => { if(driveEnabled) syncToDrive(exportarBackup(true)); }, 300000); // 5 minutos
 
 function importarBackup() {
   const input = document.createElement('input');
