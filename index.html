@@ -27,6 +27,12 @@ const FIREBASE_CONFIG = {
   messagingSenderId: "608731664867",
   appId:             "1:608731664867:web:f2b8e5a923ee64ae3850d6"
 };
+if (typeof firebase === 'undefined') {
+  document.addEventListener('DOMContentLoaded', function() {
+    document.body.innerHTML = '<div style="font-family:sans-serif;padding:40px;text-align:center;"><h2 style="color:#c0392b">⚠️ Erro de carregamento</h2><p>Os scripts do Firebase não puderam ser carregados.</p><p><strong>Este arquivo precisa ser aberto via servidor HTTP</strong>, não diretamente pelo explorador de arquivos (file://).</p><p style="margin-top:20px;">Abra o terminal na pasta do arquivo e execute:<br><code style="background:#eee;padding:8px 16px;border-radius:6px;display:inline-block;margin-top:8px;">npx serve .</code><br>ou<br><code style="background:#eee;padding:8px 16px;border-radius:6px;display:inline-block;margin-top:8px;">python -m http.server 8080</code></p><p>Depois acesse <strong>http://localhost:8080</strong> no navegador.</p></div>';
+  });
+  throw new Error('Firebase SDK não carregado. Abra via servidor HTTP.');
+}
 firebase.initializeApp(FIREBASE_CONFIG);
 const rtdb = firebase.database();
 const auth = firebase.auth();
@@ -53,12 +59,15 @@ const auth = firebase.auth();
 const _cache = {};
 const _listeners = {};
 
+// Sanitiza identificador para uso seguro como chave no RTDB (remove . # $ [ ] @)
+function _sanitizeKey(k) { return k.replace(/[.#$\[\]@]/g, '_'); }
+
 // Converte chave localStorage → caminho RTDB
 function _rtdbPath(key) {
   if (key === 'sessao' || key === 'lembrado' || key === 'theme') return null;
   if (key === 'manutencao_senha')     return 'senhas/manutencao/hash';
-  if (key.startsWith('usuario_'))     return 'usuarios/'     + key.slice(8);
-  if (key.startsWith('senha_'))       return 'senhas/'       + key.slice(6) + '/hash';
+  if (key.startsWith('usuario_'))     return 'usuarios/'     + _sanitizeKey(key.slice(8));
+  if (key.startsWith('senha_'))       return 'senhas/'       + _sanitizeKey(key.slice(6)) + '/hash';
   if (key.startsWith('plan_'))        return 'planejamentos/'+ key.slice(5);
   if (key.startsWith('horario_'))     return 'horarios/'     + key.slice(8);
   if (key.startsWith('histHorario_')) return 'histHorarios/' + key.slice(12);
@@ -1669,21 +1678,31 @@ async function fazerLogin() {
 
     // Buscar perfil do RTDB
     let perfil = null;
-    // Tenta pelo login direto
-    const snapDireto = await rtdb.ref('usuarios/'+usr).get();
-    if (snapDireto.exists()) {
-      perfil = snapDireto.val();
-      _cache['usuario_'+usr] = perfil;
-      try { localStorage.setItem('usuario_'+usr, JSON.stringify(perfil)); } catch {}
-    } else {
-      // Busca por email — faz prefetch de todos e filtra
+    // Verifica se o usr contém caracteres inválidos para path do RTDB (email, pontos, etc.)
+    const usrTemCaracteresInvalidos = /[.#$\[\]@]/.test(usr);
+    if (!usrTemCaracteresInvalidos) {
+      // Tenta pelo login direto (username simples)
+      const snapDireto = await rtdb.ref('usuarios/'+usr).get();
+      if (snapDireto.exists()) {
+        perfil = snapDireto.val();
+        _cache['usuario_'+usr] = perfil;
+        try { localStorage.setItem('usuario_'+usr, JSON.stringify(perfil)); } catch {}
+      }
+    }
+    if (!perfil) {
+      // Busca por email ou username não encontrado — faz prefetch de todos e filtra
       await prefetchTodosUsuarios();
       perfil = buscarPorEmail(usr);
+      // Se não achou por email, tenta buscar por campo usuario
+      if (!perfil) {
+        const todos = Object.values(_cache).filter(v => v && typeof v === 'object' && v.usuario);
+        perfil = todos.find(u => u.usuario === usr) || null;
+      }
     }
     if (!perfil) { toast('Usuário não encontrado','error'); return; }
 
     // Verificar senha no RTDB
-    const senhaSnap = await rtdb.ref('senhas/'+perfil.usuario+'/hash').get();
+    const senhaSnap = await rtdb.ref('senhas/'+_sanitizeKey(perfil.usuario)+'/hash').get();
     const senhaAtual = senhaSnap.exists() ? senhaSnap.val() : null;
     if (!senhaAtual || senhaAtual !== pwd) { toast('Senha incorreta','error'); return; }
     _cache['senha_'+perfil.usuario] = senhaAtual;
@@ -3841,10 +3860,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     await ensureAuth();
 
     // Seed coordenador padrão no Firestore se não existir
-    const coordSnap = await rtdb.ref('usuarios/'+COORDENADOR_SEED.usuario).get();
+    const coordSnap = await rtdb.ref('usuarios/'+_sanitizeKey(COORDENADOR_SEED.usuario)).get();
     if (!coordSnap.exists()) {
-      await rtdb.ref('usuarios/'+COORDENADOR_SEED.usuario).set(COORDENADOR_SEED);
-      await rtdb.ref('senhas/'+COORDENADOR_SEED.usuario+'/hash').set(SENHA_COORDENADOR_PADRAO);
+      await rtdb.ref('usuarios/'+_sanitizeKey(COORDENADOR_SEED.usuario)).set(COORDENADOR_SEED);
+      await rtdb.ref('senhas/'+_sanitizeKey(COORDENADOR_SEED.usuario)+'/hash').set(SENHA_COORDENADOR_PADRAO);
       _cache['usuario_'+COORDENADOR_SEED.usuario] = COORDENADOR_SEED;
       _cache['senha_'+COORDENADOR_SEED.usuario] = SENHA_COORDENADOR_PADRAO;
     } else {
