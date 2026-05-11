@@ -1654,6 +1654,15 @@ function mostrarPrimeiroAcesso() {
   document.getElementById('primeiroAcessoForm').classList.remove('hidden');
 }
 
+// Lê a senha de um usuário sempre desembrulhando o _wrap do RTDB
+async function _getSenha(usuario) {
+  if (usuario === MANUTENCAO.usuario) {
+    return (await _dbGet('manutencao_senha')) || 'manut@2025';
+  }
+  const snap = await rtdb.ref('senhas/'+_sanitizeKey(usuario)+'/hash').get();
+  return snap.exists() ? _unwrap(snap.val()) : null;
+}
+
 async function fazerLogin() {
   const usr = document.getElementById('loginUsuario').value.trim();
   const pwd = document.getElementById('loginSenha').value;
@@ -1703,7 +1712,8 @@ async function fazerLogin() {
 
     // Verificar senha no RTDB
     const senhaSnap = await rtdb.ref('senhas/'+_sanitizeKey(perfil.usuario)+'/hash').get();
-    const senhaAtual = senhaSnap.exists() ? senhaSnap.val() : null;
+    const senhaRaw = senhaSnap.exists() ? senhaSnap.val() : null;
+    const senhaAtual = _unwrap(senhaRaw);
     if (!senhaAtual || senhaAtual !== pwd) { toast('Senha incorreta','error'); return; }
     _cache['senha_'+perfil.usuario] = senhaAtual;
 
@@ -1976,13 +1986,13 @@ function abrirTrocarSenha() {
 }
 function fecharModalTrocarSenha() { document.getElementById('modalTrocarSenha').classList.add('hidden'); }
 
-function salvarNovaSenha() {
+async function salvarNovaSenha() {
   const atual = document.getElementById('senhaAtual').value;
   const nova  = document.getElementById('novaSenhaModal').value;
   const conf  = document.getElementById('confirmarSenhaModal').value;
   const usr = usuarioLogado.usuario;
   const chave = usr===MANUTENCAO.usuario ? 'manutencao_senha' : 'senha_'+usr;
-  const senhaCorreta = S.get(chave) || (usr===MANUTENCAO.usuario ? 'manut@2025' : '');
+  const senhaCorreta = await _getSenha(usr);
   if (atual !== senhaCorreta) { toast('Senha atual incorreta','error'); return; }
   if (nova.length < 6)        { toast('Mínimo 6 caracteres','error'); return; }
   if (nova !== conf)          { toast('Senhas não coincidem','error'); return; }
