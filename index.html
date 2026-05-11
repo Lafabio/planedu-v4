@@ -209,9 +209,24 @@ async function prefetchTodosUsuarios() {
 // ============================================================
 // AUTENTICAÇÃO ANÔNIMA
 // ============================================================
+let authInitialized = false;
+let authFailed = false;
 async function ensureAuth() {
-  if (auth.currentUser) return;
-  try { await auth.signInAnonymously(); } catch(e) { console.warn('auth:', e.message); }
+  if (authFailed) return false; // Falhou permanentemente
+  if (auth.currentUser) return true;
+  if (authInitialized) return false; // Já tentou e falhou
+  
+  try {
+    await auth.signInAnonymously();
+    authInitialized = true;
+    return true;
+  } catch(e) {
+    console.error('Falha na autenticação anônima:', e.message);
+    authInitialized = true;
+    authFailed = true;
+    // Não exibe toast aqui para permitir fallback offline
+    return false;
+  }
 }
 
 // ============================================================
@@ -1673,7 +1688,12 @@ async function fazerLogin() {
   if (btnLogin) { btnLogin.disabled = true; btnLogin.textContent = '🔄 Verificando...'; }
 
   try {
-    await ensureAuth();
+    const authSuccess = await ensureAuth();
+    if (!authSuccess) {
+      // Falha na autenticação anônima - tentar modo offline com localStorage
+      console.warn('Firebase indisponível, tentando login offline...');
+      // Continua para tentar autenticar com dados locais
+    }
 
     // Manutenção
     const manutPwd = (await _dbGet('manutencao_senha')) || S.get('manutencao_senha') || 'manut@2025';
@@ -1689,7 +1709,7 @@ async function fazerLogin() {
     let perfil = null;
     // Verifica se o usr contém caracteres inválidos para path do RTDB (email, pontos, etc.)
     const usrTemCaracteresInvalidos = /[.#$\[\]@]/.test(usr);
-    if (!usrTemCaracteresInvalidos) {
+    if (!usrTemCaracteresInvalidos && authSuccess) {
       // Tenta pelo login direto (username simples)
       const snapDireto = await rtdb.ref('usuarios/'+usr).get();
       if (snapDireto.exists()) {
@@ -1698,7 +1718,7 @@ async function fazerLogin() {
         try { localStorage.setItem('usuario_'+usr, JSON.stringify(perfil)); } catch {}
       }
     }
-    if (!perfil) {
+    if (!perfil && authSuccess) {
       // Busca por email ou username não encontrado — faz prefetch de todos e filtra
       await prefetchTodosUsuarios();
       perfil = buscarPorEmail(usr);
@@ -1708,12 +1728,24 @@ async function fazerLogin() {
         perfil = todos.find(u => u.usuario === usr) || null;
       }
     }
+    // Fallback: busca no localStorage se Firebase falhou
+    if (!perfil) {
+      const perfilLocal = S.getObj('usuario_'+usr);
+      if (perfilLocal) perfil = perfilLocal;
+    }
     if (!perfil) { toast('Usuário não encontrado','error'); return; }
 
-    // Verificar senha no RTDB
-    const senhaSnap = await rtdb.ref('senhas/'+_sanitizeKey(perfil.usuario)+'/hash').get();
-    const senhaRaw = senhaSnap.exists() ? senhaSnap.val() : null;
-    const senhaAtual = _unwrap(senhaRaw);
+    // Verificar senha no RTDB ou fallback local
+    let senhaAtual = null;
+    if (authSuccess) {
+      const senhaSnap = await rtdb.ref('senhas/'+_sanitizeKey(perfil.usuario)+'/hash').get();
+      const senhaRaw = senhaSnap.exists() ? senhaSnap.val() : null;
+      senhaAtual = _unwrap(senhaRaw);
+    }
+    // Fallback para senha local
+    if (!senhaAtual) {
+      senhaAtual = S.get('senha_'+perfil.usuario);
+    }
     if (!senhaAtual || senhaAtual !== pwd) { toast('Senha incorreta','error'); return; }
     _cache['senha_'+perfil.usuario] = senhaAtual;
 
@@ -1730,10 +1762,14 @@ async function fazerLogin() {
     S.setObj('sessao', usuarioLogado);
 
     // Prefetch dados do usuário do Firestore
-    toast('Carregando dados...','info', 1500);
-    await prefetchUsuario(perfil.usuario);
-    if (perfil.tipo === 'coordenador' || perfil.tipo === 'manutencao') {
-      await prefetchTodosUsuarios();
+    if (authSuccess) {
+      toast('Carregando dados...','info', 1500);
+      await prefetchUsuario(perfil.usuario);
+      if (perfil.tipo === 'coordenador' || perfil.tipo === 'manutencao') {
+        await prefetchTodosUsuarios();
+      }
+    } else {
+      toast('⚠️ Modo offline — dados locais','warn', 3000);
     }
 
     iniciarApp();
