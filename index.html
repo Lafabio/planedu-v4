@@ -209,9 +209,21 @@ async function prefetchTodosUsuarios() {
 // ============================================================
 // AUTENTICAÇÃO ANÔNIMA
 // ============================================================
+let authInitialized = false;
 async function ensureAuth() {
-  if (auth.currentUser) return;
-  try { await auth.signInAnonymously(); } catch(e) { console.warn('auth:', e.message); }
+  if (auth.currentUser) return true;
+  if (authInitialized) return false; // Já tentou e falhou
+  
+  try {
+    await auth.signInAnonymously();
+    authInitialized = true;
+    return true;
+  } catch(e) {
+    console.error('Falha na autenticação anônima:', e.message);
+    authInitialized = true;
+    toast('Erro de conexão com servidor. Verifique sua internet.','error');
+    return false;
+  }
 }
 
 // ============================================================
@@ -1673,7 +1685,11 @@ async function fazerLogin() {
   if (btnLogin) { btnLogin.disabled = true; btnLogin.textContent = '🔄 Verificando...'; }
 
   try {
-    await ensureAuth();
+    const authSuccess = await ensureAuth();
+    if (!authSuccess) {
+      // Falha na autenticação anônima - não consegue conectar ao Firebase
+      return; // toast já foi exibido em ensureAuth()
+    }
 
     // Manutenção
     const manutPwd = (await _dbGet('manutencao_senha')) || S.get('manutencao_senha') || 'manut@2025';
