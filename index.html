@@ -3298,6 +3298,7 @@ Retorne APENAS o plano formatado acima, sem introduções ou comentários adicio
       }
     }
     if(!texto)throw new Error('Nenhum modelo retornou conteúdo.');
+    texto = normalizarPlanoParaSGN(texto);
     const k='sem_'+semana;
     if(!planejamentos[k])planejamentos[k]={aulas:criarGrade(semanas[semana].inicio),anotacoes:''};
     planejamentos[k].aulas[dia][aula].conteudo=texto;
@@ -3308,6 +3309,22 @@ Retorne APENAS o plano formatado acima, sem introduções ou comentários adicio
   }finally{
     btn.disabled=false;btn.innerHTML='✨ Gerar planejamento';
   }
+}
+
+function normalizarPlanoParaSGN(texto=''){
+  let t = String(texto || '');
+  // Normalizações comuns quando o modelo retorna formato antigo
+  t = t.replace(/\*\*OBJETIVO GERAL\*\*/gi, '**OBJETIVOS DA AULA**');
+  t = t.replace(/\*\*OBJETIVOS ESPEC[ÍI]FICOS\*\*/gi, '**ESTRATÉGIAS**');
+  t = t.replace(/\*\*DESENVOLVIMENTO DA AULA\*\*/gi, '**MOMENTOS**');
+  t = t.replace(/\*\*AVALIA[ÇC][ÃA]O\*\*/gi, '**ESTRATÉGIAS**');
+  t = t.replace(/\*\*RECURSOS DID[ÁA]TICOS\*\*/gi, '**MOMENTOS**');
+  // Garante blocos mínimos do padrão SGN
+  const blocos = ['**OBJETIVOS DA AULA**','**OBJETO DE CONHECIMENTO**','**MOMENTOS**','**ESTRATÉGIAS**','**TAREFA DE CASA**'];
+  for (const b of blocos) {
+    if (!t.includes(b)) t += `\n\n${b}\n(A completar pelo professor)`;
+  }
+  return t;
 }
 
 // ============================================================
