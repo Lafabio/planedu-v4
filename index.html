@@ -1729,7 +1729,8 @@ async function fazerLogin() {
       // Se não achou por email, tenta buscar por campo usuario
       if (!perfil) {
         const todos = Object.values(_cache).filter(v => v && typeof v === 'object' && v.usuario);
-        perfil = todos.find(u => u.usuario === usr) || null;
+        const usrNorm = String(usr || '').trim().toLowerCase();
+        perfil = todos.find(u => String(u.usuario || '').trim().toLowerCase() === usrNorm) || null;
       }
     }
     if (!perfil) { toast('Usuário não encontrado','error'); return; }
@@ -1785,11 +1786,15 @@ function confirmarPrimeiroAcesso() {
 }
 
 function buscarPorEmail(email) {
+  const alvo = String(email || '').trim().toLowerCase();
   // Busca no cache (_cache tem os dados do Firestore)
   for (const k in _cache) {
     if (k.startsWith('usuario_')) {
       const u = _cache[k];
-      if (u && typeof u === 'object' && (u.email===email || u.usuario===email)) return u;
+      if (!u || typeof u !== 'object') continue;
+      const uEmail = String(u.email || '').trim().toLowerCase();
+      const uUser  = String(u.usuario || '').trim().toLowerCase();
+      if (uEmail===alvo || uUser===alvo) return u;
     }
   }
   // Fallback: localStorage (para dados legados ou offline)
@@ -1797,7 +1802,10 @@ function buscarPorEmail(email) {
     const k = S.key(i);
     if (k && k.startsWith('usuario_')) {
       const u = S.getObj(k);
-      if (u && (u.email===email || u.usuario===email)) return u;
+      if (!u || typeof u !== 'object') continue;
+      const uEmail = String(u.email || '').trim().toLowerCase();
+      const uUser  = String(u.usuario || '').trim().toLowerCase();
+      if (uEmail===alvo || uUser===alvo) return u;
     }
   }
   return null;
