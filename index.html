@@ -3215,7 +3215,6 @@ async function gerarPlanoComIA(){
   const disciplinaNome=document.getElementById('modalDisciplina').textContent;
   const turma=document.getElementById('modalTurma').textContent;
 
-  const metKey=metTexto.replace(/^[^\s]+\s+/,'');
   const prompt=`Você é um especialista em planejamento pedagógico SESI. Crie um plano de aula completo para o SGN.
 
 DADOS:
@@ -3226,48 +3225,28 @@ DADOS:
 - Habilidade BNCC: ${hab||'Não especificada'}
 ${obs?`- Observações: ${obs}`:''}
 
-ESTRUTURA OBRIGATÓRIA:
+ESTRUTURA OBRIGATÓRIA (SGN):
 
 **TÍTULO**
 ${titulo}
 
-**OBJETIVO GERAL**
-(Um objetivo claro, iniciado com verbo no infinitivo)
-
-**OBJETIVOS ESPECÍFICOS**
-(2-3 objetivos, um por linha, iniciados com verbo no infinitivo)
+**OBJETIVOS DA AULA**
+(Descrição de qual o objetivo da aula)
 
 **HABILIDADE BNCC**
 ${hab||'A ser definida pelo professor'}
 
 **OBJETO DE CONHECIMENTO**
-(Conceitos e conteúdos trabalhados)
+(Deixar claro quais os objetos de conhecimento que serão desenvolvidos)
 
-**METODOLOGIA: ${metTexto}**
-(Justificativa da escolha metodológica)
+**MOMENTOS**
+(Descrição dos passos da aula e como será conduzida: metodologias, rotinas, estratégias, recursos, espaços e pessoas. Considere a metodologia selecionada: ${metTexto})
 
-**DESENVOLVIMENTO DA AULA**
-
-*Abertura (10 min):*
-(Situação-problema ou engajamento inicial)
-
-*Desenvolvimento (25 min):*
-(Atividades detalhadas seguindo a metodologia ${metKey})
-
-*Consolidação (10 min):*
-(Síntese e avaliação formativa)
-
-**RECURSOS DIDÁTICOS**
-(Materiais, tecnologias e espaços necessários)
-
-**AVALIAÇÃO**
-(Critérios e instrumentos avaliativos)
+**ESTRATÉGIAS**
+(Descrever como espera conseguir as evidências através das estratégias de sala de aula)
 
 **TAREFA DE CASA**
-(Atividade complementar opcional)
-
-**REFERÊNCIAS**
-(Indicações bibliográficas ou digitais)
+(Definir se e quais atividades de casa serão propostas, especialmente para Ensino Fundamental)
 
 Retorne APENAS o plano formatado acima, sem introduções ou comentários adicionais.`;
 
