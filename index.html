@@ -192,6 +192,22 @@ async function prefetchUsuario(usuario) {
   }));
 }
 
+async function migrarDadosLocaisUsuarioParaRTDB(usuario) {
+  if (!usuario) return;
+  const chaves = [
+    'plan_'+usuario, 'horario_'+usuario, 'histHorario_'+usuario,
+    'discCustom_'+usuario, 'msgs_'+usuario, 'dataInicio_'+usuario, 'foto_'+usuario
+  ];
+  for (const k of chaves) {
+    const local = S.getObj(k);
+    if (local === null || local === undefined) continue;
+    const remoto = await _dbGet(k);
+    if (remoto === null || remoto === undefined) {
+      await _dbSet(k, local);
+    }
+  }
+}
+
 async function prefetchTodosUsuarios() {
   try {
     const snap = await rtdb.ref('usuarios').get();
@@ -1749,6 +1765,9 @@ async function fazerLogin() {
     if (document.getElementById('lembrarUsuario').checked) S.set('lembrado', usr);
     else S.del('lembrado');
     S.setObj('sessao', usuarioLogado);
+
+    // Migração de segurança: sobe dados locais legados para RTDB (se remoto vazio)
+    await migrarDadosLocaisUsuarioParaRTDB(perfil.usuario);
 
     // Prefetch dados do usuário do Firestore
     toast('Carregando dados...','info', 1500);
@@ -3905,6 +3924,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         _cache['usuario_'+sessao.usuario] = usuarioLogado;
         try { localStorage.setItem('usuario_'+sessao.usuario, JSON.stringify(usuarioLogado)); } catch {}
         S.setObj('sessao', usuarioLogado);
+        await migrarDadosLocaisUsuarioParaRTDB(sessao.usuario);
         await prefetchUsuario(sessao.usuario);
         if (usuarioLogado.tipo === 'coordenador') await prefetchTodosUsuarios();
         splash.remove();
