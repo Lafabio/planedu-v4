@@ -223,13 +223,15 @@ async function prefetchTodosUsuarios() {
 // ============================================================
 // AUTENTICAÇÃO ANÔNIMA
 // ============================================================
-async function ensureAuth() {
+async function ensureAuth(strict = false) {
   if (auth.currentUser) return;
   try {
     await auth.signInAnonymously();
   } catch(e) {
     console.warn('auth:', e.message);
-    throw new Error('Falha na autenticação com o servidor. Verifique as regras do Firebase Auth/RTDB.');
+    if (strict) {
+      throw new Error('Falha na autenticação com o servidor. Verifique as regras do Firebase Auth/RTDB.');
+    }
   }
 }
 
@@ -1714,7 +1716,7 @@ async function fazerLogin() {
   if (btnLogin) { btnLogin.disabled = true; btnLogin.textContent = '🔄 Verificando...'; }
 
   try {
-    await ensureAuth();
+    await ensureAuth(true);
 
     // Manutenção
     const manutPwd = (await _dbGet('manutencao_senha')) || S.get('manutencao_senha') || 'manut@2025';
