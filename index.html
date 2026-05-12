@@ -1668,6 +1668,29 @@ async function _getSenha(usuario) {
   return snap.exists() ? _unwrap(snap.val()) : null;
 }
 
+async function _getSenhaComFallback(perfil, loginInput) {
+  const candidatos = [];
+  const add = (v) => {
+    const k = String(v || '').trim();
+    if (!k) return;
+    if (!candidatos.includes(k)) candidatos.push(k);
+  };
+  add(perfil?.usuario);
+  add(loginInput);
+  const emailBase = String(loginInput || '').trim().toLowerCase();
+  if (emailBase.includes('@')) add(emailBase.split('@')[0]);
+  const perfilEmail = String(perfil?.email || '').trim().toLowerCase();
+  if (perfilEmail.includes('@')) add(perfilEmail.split('@')[0]);
+
+  for (const key of candidatos) {
+    const snap = await rtdb.ref('senhas/'+_sanitizeKey(key)+'/hash').get();
+    if (snap.exists()) {
+      return { senha: _unwrap(snap.val()), chave: key };
+    }
+  }
+  return { senha: null, chave: null };
+}
+
 async function fazerLogin() {
   const usr = document.getElementById('loginUsuario').value.trim();
   const pwd = document.getElementById('loginSenha').value;
@@ -1712,11 +1735,10 @@ async function fazerLogin() {
     if (!perfil) { toast('Usuário não encontrado','error'); return; }
 
     // Verificar senha no RTDB
-    const senhaSnap = await rtdb.ref('senhas/'+_sanitizeKey(perfil.usuario)+'/hash').get();
-    const senhaRaw = senhaSnap.exists() ? senhaSnap.val() : null;
-    const senhaAtual = _unwrap(senhaRaw);
+    const senhaRes = await _getSenhaComFallback(perfil, usr);
+    const senhaAtual = senhaRes.senha;
     if (!senhaAtual || senhaAtual !== pwd) { toast('Senha incorreta','error'); return; }
-    _cache['senha_'+perfil.usuario] = senhaAtual;
+    _cache['senha_'+(senhaRes.chave || perfil.usuario)] = senhaAtual;
 
     // Primeiro acesso?
     if (perfil.primeiroAcesso) {
