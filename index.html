@@ -85,19 +85,34 @@ function _rtdbPath(key) {
 
 function _sanitize(v) {
   if (v === undefined || v === null) return null;
-  return JSON.parse(JSON.stringify(v, (k2, val) => val === undefined ? null : val));
+  return JSON.parse(JSON.stringify(v, (_, val) => val === undefined ? null : val));
 }
-function _wrap(v)   { return (typeof v === 'object' && v !== null) ? v : { __v: String(v ?? '') }; }
-function _unwrap(v) {
+
+// Senhas têm estrutura especial: { hash: "valor" }
+function _isSenhaKey(key) {
+  return key.startsWith('senha_') || key === 'manutencao_senha';
+}
+
+// Empacota primitivos para salvar no RTDB (que não aceita strings soltas na raiz)
+function _wrap(key, v) {
+  if (_isSenhaKey(key))              return { hash: String(v ?? '') };
+  if (typeof v === 'object' && v !== null) return v;
+  return { _v: v === null || v === undefined ? null : String(v) };
+}
+
+// Desempacota valor lido do RTDB
+function _unwrap(key, v) {
   if (v === null || v === undefined) return null;
-  if (typeof v === 'object' && '__v' in v) return v.__v;
+  if (_isSenhaKey(key))              return (typeof v === 'object' && 'hash' in v) ? v.hash : v;
+  if (typeof v === 'object' && '_v' in v) return v._v;
+  if (typeof v === 'object' && '__v' in v) return v.__v; // compatibilidade legada
   return v;
 }
 
 async function _dbSet(key, value) {
   const path = _rtdbPath(key);
   if (!path) return;
-  try { await rtdb.ref(path).set(_sanitize(_wrap(value))); }
+  try { await rtdb.ref(path).set(_sanitize(_wrap(key, value))); }
   catch(e) { console.warn('rtdb set:', key, e.message); }
 }
 
@@ -106,7 +121,7 @@ async function _dbGet(key) {
   if (!path) return null;
   try {
     const snap = await rtdb.ref(path).get();
-    return snap.exists() ? _unwrap(snap.val()) : null;
+    return snap.exists() ? _unwrap(key, snap.val()) : null;
   } catch(e) { console.warn('rtdb get:', key, e.message); return null; }
 }
 
@@ -120,11 +135,16 @@ async function _dbDel(key) {
 function _dbListen(key, callback) {
   const path = _rtdbPath(key);
   if (!path) return;
+  // Cancela listener anterior se existir
   if (_listeners[key]) { rtdb.ref(_listeners[key].path).off('value', _listeners[key].fn); }
   const fn = snap => {
-    const val = snap.exists() ? _unwrap(snap.val()) : null;
+    const val = snap.exists() ? _unwrap(key, snap.val()) : null;
+    // Atualiza cache e localStorage
     _cache[key] = val;
-    try { localStorage.setItem(key, typeof val === 'object' ? JSON.stringify(val) : String(val ?? '')); } catch {}
+    try {
+      if (val === null) localStorage.removeItem(key);
+      else localStorage.setItem(key, typeof val === 'object' ? JSON.stringify(val) : String(val));
+    } catch {}
     callback(val);
   };
   rtdb.ref(path).on('value', fn, e => console.warn('rtdb listen:', key, e.message));
@@ -1654,13 +1674,15 @@ function mostrarPrimeiroAcesso() {
   document.getElementById('primeiroAcessoForm').classList.remove('hidden');
 }
 
-// Lê a senha de um usuário sempre desembrulhando o _wrap do RTDB
+// Lê a senha de um usuário no RTDB
 async function _getSenha(usuario) {
   if (usuario === MANUTENCAO.usuario) {
     return (await _dbGet('manutencao_senha')) || 'manut@2025';
   }
-  const snap = await rtdb.ref('senhas/'+_sanitizeKey(usuario)+'/hash').get();
-  return snap.exists() ? _unwrap(snap.val()) : null;
+  const snap = await rtdb.ref('senhas/'+_sanitizeKey(usuario)).get();
+  if (!snap.exists()) return null;
+  const v = snap.val();
+  return (v && typeof v === 'object' && 'hash' in v) ? v.hash : v;
 }
 
 async function fazerLogin() {
@@ -1711,9 +1733,9 @@ async function fazerLogin() {
     if (!perfil) { toast('Usuário não encontrado','error'); return; }
 
     // Verificar senha no RTDB
-    const senhaSnap = await rtdb.ref('senhas/'+_sanitizeKey(perfil.usuario)+'/hash').get();
+    const senhaSnap = await rtdb.ref('senhas/'+_sanitizeKey(perfil.usuario)).get();
     const senhaRaw = senhaSnap.exists() ? senhaSnap.val() : null;
-    const senhaAtual = _unwrap(senhaRaw);
+    const senhaAtual = senhaRaw && typeof senhaRaw === 'object' ? (senhaRaw.hash ?? null) : senhaRaw;
     if (!senhaAtual || senhaAtual !== pwd) { toast('Senha incorreta','error'); return; }
     _cache['senha_'+perfil.usuario] = senhaAtual;
 
@@ -1834,35 +1856,75 @@ function fazerLogout() {
 function iniciarApp() {
   document.getElementById('telaLogin').classList.add('hidden');
   document.getElementById('appPrincipal').classList.remove('hidden');
-  carregarDados();
   atualizarInterface();
   verificarMensagensNaoLidas();
   const tipo = usuarioLogado.tipo;
+  const u    = usuarioLogado.usuario;
 
-  // Ativar listeners em tempo real
-  iniciarListenerMsgs(usuarioLogado.usuario);
+  // Ativar listeners em tempo real para TODOS os dados relevantes
+  iniciarListenerMsgs(u);
+
   if (tipo === 'coordenador') {
     iniciarListenerInbox();
+    // Coordenador escuta todos os usuários para ver novos cadastros
+    rtdb.ref('usuarios').on('value', snap => {
+      if (!snap.exists()) return;
+      snap.forEach(child => {
+        const perfil = child.val();
+        _cache['usuario_'+child.key] = perfil;
+        try { localStorage.setItem('usuario_'+child.key, JSON.stringify(perfil)); } catch {}
+      });
+    });
     mostrarPaginaCoordenador();
+
   } else if (tipo === 'manutencao') {
     mostrarPaginaManutencao();
+
   } else {
-    // Professor: listener em tempo real no planejamento para detectar feedback do coord
-    _dbListen('plan_'+usuarioLogado.usuario, (val) => {
-      if (val && typeof val === 'object') {
-        planejamentos = val;
-        try { localStorage.setItem('plan_'+usuarioLogado.usuario, JSON.stringify(val)); } catch {}
-        if (semanaAtual >= 0 && typeof renderizarSemana === 'function') {
-          try { renderizarSemana(semanaAtual); } catch {}
-        }
-      }
+    // Professor — listeners em tempo real para todos os dados próprios
+    _dbListen('plan_'+u, val => {
+      planejamentos = (val && typeof val === 'object') ? val : {};
+      try { localStorage.setItem('plan_'+u, JSON.stringify(planejamentos)); } catch {}
+      if (semanaAtual >= 0) { try { renderSemanas(); } catch {} }
     });
+
+    _dbListen('horario_'+u, val => {
+      const raw = (val && typeof val === 'object') ? val : {};
+      horarioAtivo = normalizarHorario(raw);
+      try { localStorage.setItem('horario_'+u, JSON.stringify(raw)); } catch {}
+      // Re-renderiza horário se estiver visível
+      if (typeof renderGradeHorario === 'function') { try { renderGradeHorario(); } catch {} }
+    });
+
+    _dbListen('discCustom_'+u, val => {
+      disciplinasCustom = Array.isArray(val) ? val : (val ? Object.values(val) : []);
+      try { localStorage.setItem('discCustom_'+u, JSON.stringify(disciplinasCustom)); } catch {}
+    });
+
+    _dbListen('histHorario_'+u, val => {
+      if (!val) return;
+      historicoHorarios = Array.isArray(val) ? val : Object.values(val);
+      historicoHorarios = historicoHorarios.map(v => ({ ...v, horario: normalizarHorario(v.horario||{}) }));
+      try { localStorage.setItem('histHorario_'+u, JSON.stringify(historicoHorarios)); } catch {}
+    });
+
+    _dbListen('dataInicio_'+u, val => {
+      if (!val) return;
+      const data = typeof val === 'object' ? val._v : val;
+      if (!data) return;
+      const el = document.getElementById('inicioLetivo');
+      if (el && el.value !== data) { el.value = data; gerarSemanas(data); }
+    });
+
+    // Carregar dados iniciais do cache (já preenchido pelo prefetch no login)
+    carregarDados();
   }
 }
 
 function carregarDados() {
   if (!usuarioLogado || usuarioLogado.tipo==='coordenador' || usuarioLogado.tipo==='manutencao') return;
   const u = usuarioLogado.usuario;
+  // Lê do cache (populado pelo prefetchUsuario no login)
   planejamentos     = S.getObj('plan_'+u) || {};
   disciplinasCustom = S.getObj('discCustom_'+u) || [];
   historicoHorarios = S.getObj('histHorario_'+u) || [];
@@ -3869,15 +3931,14 @@ document.addEventListener('DOMContentLoaded', async () => {
   try {
     await ensureAuth();
 
-    // Seed coordenador padrão no Firestore se não existir
+    // Seed coordenador padrão no RTDB se não existir
     const coordSnap = await rtdb.ref('usuarios/'+_sanitizeKey(COORDENADOR_SEED.usuario)).get();
     if (!coordSnap.exists()) {
       await rtdb.ref('usuarios/'+_sanitizeKey(COORDENADOR_SEED.usuario)).set(COORDENADOR_SEED);
-      await rtdb.ref('senhas/'+_sanitizeKey(COORDENADOR_SEED.usuario)+'/hash').set(SENHA_COORDENADOR_PADRAO);
+      await rtdb.ref('senhas/'+_sanitizeKey(COORDENADOR_SEED.usuario)).set({ hash: SENHA_COORDENADOR_PADRAO });
       _cache['usuario_'+COORDENADOR_SEED.usuario] = COORDENADOR_SEED;
       _cache['senha_'+COORDENADOR_SEED.usuario] = SENHA_COORDENADOR_PADRAO;
     } else {
-      // Garante cache local
       _cache['usuario_'+COORDENADOR_SEED.usuario] = coordSnap.val();
       try { localStorage.setItem('usuario_'+COORDENADOR_SEED.usuario, JSON.stringify(coordSnap.val())); } catch {}
     }
