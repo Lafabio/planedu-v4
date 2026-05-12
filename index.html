@@ -14,10 +14,13 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
 <script>
-// ============================================================
-// FIREBASE CONFIG
-// Cole aqui os dados do seu projeto (Configurações → Seus apps → Web)
-// ============================================================
+// ================================================================
+// FIREBASE — Realtime Database
+// REGRA ÚNICA DE SERIALIZAÇÃO:
+//   • objetos  → salvos diretamente
+//   • strings/números → salvos como { _s: valor }
+//   • senhas         → salvas como { _s: valor } em /senhas/{uid}
+// ================================================================
 const FIREBASE_CONFIG = {
   apiKey:            "AIzaSyArnDiS6_e9O1hCXy95bTXQP1WMS8Jxc9o",
   authDomain:        "planedu-sesi.firebaseapp.com",
@@ -27,119 +30,104 @@ const FIREBASE_CONFIG = {
   messagingSenderId: "608731664867",
   appId:             "1:608731664867:web:f2b8e5a923ee64ae3850d6"
 };
-if (typeof firebase === 'undefined') {
-  document.addEventListener('DOMContentLoaded', function() {
-    document.body.innerHTML = '<div style="font-family:sans-serif;padding:40px;text-align:center;"><h2 style="color:#c0392b">⚠️ Erro de carregamento</h2><p>Os scripts do Firebase não puderam ser carregados.</p><p><strong>Este arquivo precisa ser aberto via servidor HTTP</strong>, não diretamente pelo explorador de arquivos (file://).</p><p style="margin-top:20px;">Abra o terminal na pasta do arquivo e execute:<br><code style="background:#eee;padding:8px 16px;border-radius:6px;display:inline-block;margin-top:8px;">npx serve .</code><br>ou<br><code style="background:#eee;padding:8px 16px;border-radius:6px;display:inline-block;margin-top:8px;">python -m http.server 8080</code></p><p>Depois acesse <strong>http://localhost:8080</strong> no navegador.</p></div>';
-  });
-  throw new Error('Firebase SDK não carregado. Abra via servidor HTTP.');
-}
 firebase.initializeApp(FIREBASE_CONFIG);
 const rtdb = firebase.database();
 const auth = firebase.auth();
 
-// ============================================================
-// ============================================================
-// CAMADA DE SINCRONIZAÇÃO — Realtime Database (plano gratuito)
-// Estrutura de nós:
-//   /usuarios/{usuario}       — perfil
-//   /senhas/{usuario}/hash    — senha
-//   /planejamentos/{usuario}  — planejamentos
-//   /horarios/{usuario}       — horário ativo
-//   /histHorarios/{usuario}   — histórico de horários
-//   /discCustom/{usuario}     — disciplinas personalizadas
-//   /msgs/{usuario}           — mensagens
-//   /coordInbox               — inbox da coordenação
-//   /chat/{chatKey}           — chat prof↔coord
-//   /coordVisitas/{chave}     — visitas/ok da coordenação
-//   /recSenha/{usuario}       — tokens de recuperação
-//   /config/{chave}           — configurações globais
-//   /fotos/{usuario}          — foto de perfil
-// ============================================================
-
-const _cache = {};
+// ---- Cache e listeners ----
+const _cache    = {};
 const _listeners = {};
 
-// Sanitiza identificador para uso seguro como chave no RTDB (remove . # $ [ ] @)
-function _sanitizeKey(k) { return k.replace(/[.#$\[\]@]/g, '_'); }
+// Sanitiza chave para o RTDB (proíbe . # $ [ ] @)
+function _sk(k) { return String(k).replace(/[.#$[\]@]/g, '_'); }
 
-// Converte chave localStorage → caminho RTDB
-function _rtdbPath(key) {
-  if (key === 'sessao' || key === 'lembrado' || key === 'theme') return null;
-  if (key === 'manutencao_senha')     return 'senhas/manutencao/hash';
-  if (key.startsWith('usuario_'))     return 'usuarios/'     + _sanitizeKey(key.slice(8));
-  if (key.startsWith('senha_'))       return 'senhas/'       + _sanitizeKey(key.slice(6)) + '/hash';
-  if (key.startsWith('plan_'))        return 'planejamentos/'+ key.slice(5);
-  if (key.startsWith('horario_'))     return 'horarios/'     + key.slice(8);
-  if (key.startsWith('histHorario_')) return 'histHorarios/' + key.slice(12);
-  if (key.startsWith('discCustom_'))  return 'discCustom/'   + key.slice(11);
-  if (key.startsWith('msgs_'))        return 'msgs/'         + key.slice(5);
-  if (key === 'coord_inbox')          return 'coordInbox';
-  if (key.startsWith('chat_'))        return 'chat/'         + key.slice(5).replace(/[^a-zA-Z0-9_-]/g,'_');
-  if (key.startsWith('coordVisita_')) return 'coordVisitas/' + key.slice(12).replace(/[^a-zA-Z0-9_-]/g,'_');
-  if (key.startsWith('rec_'))         return 'recSenha/'     + key.slice(4);
-  if (key.startsWith('dataInicio_'))  return 'config/'       + key;
-  if (key.startsWith('apikey_'))      return 'config/'       + key;
-  if (key.startsWith('foto_'))        return 'fotos/'        + key.slice(5);
-  return 'config/' + key.replace(/[^a-zA-Z0-9_-]/g,'_');
+// Mapeia chave do localStorage para caminho no RTDB
+// Regra: todos os dados ficam em /{colecao}/{id}
+// Senhas: /senhas/{id}   (armazena { _s: "senha" })
+// Resto:  ver abaixo
+function _path(key) {
+  if (!key) return null;
+  if (key === 'sessao' || key === 'lembrado' || key === 'theme') return null; // só local
+  if (key === 'manutencao_senha')     return 'senhas/manutencao';
+  if (key.startsWith('usuario_'))     return 'usuarios/'      + _sk(key.slice(8));
+  if (key.startsWith('senha_'))       return 'senhas/'        + _sk(key.slice(6));
+  if (key.startsWith('plan_'))        return 'planejamentos/' + _sk(key.slice(5));
+  if (key.startsWith('horario_'))     return 'horarios/'      + _sk(key.slice(8));
+  if (key.startsWith('histHorario_')) return 'histHorarios/'  + _sk(key.slice(12));
+  if (key.startsWith('discCustom_'))  return 'discCustom/'    + _sk(key.slice(11));
+  if (key.startsWith('msgs_'))        return 'msgs/'          + _sk(key.slice(5));
+  if (key === 'coord_inbox')          return 'coordInbox/data';
+  if (key.startsWith('chat_'))        return 'chat/'          + _sk(key.slice(5));
+  if (key.startsWith('coordVisita_')) return 'coordVisitas/'  + _sk(key.slice(12));
+  if (key.startsWith('rec_'))         return 'recSenha/'      + _sk(key.slice(4));
+  if (key.startsWith('dataInicio_'))  return 'config/'        + _sk(key);
+  if (key.startsWith('apikey_'))      return 'config/'        + _sk(key);
+  if (key.startsWith('foto_'))        return 'fotos/'         + _sk(key.slice(5));
+  if (key.startsWith('envio_'))       return 'envios/'        + _sk(key.slice(6));
+  return 'misc/' + _sk(key);
 }
 
-function _sanitize(v) {
-  if (v === undefined || v === null) return null;
-  return JSON.parse(JSON.stringify(v, (_, val) => val === undefined ? null : val));
+// Remove undefined recursivamente (RTDB rejeita undefined)
+function _clean(v) {
+  if (v === undefined) return null;
+  if (v === null || typeof v !== 'object') return v;
+  const out = {};
+  for (const k of Object.keys(v)) {
+    const cleaned = _clean(v[k]);
+    if (cleaned !== undefined) out[k] = cleaned;
+  }
+  return out;
 }
 
-// Senhas têm estrutura especial: { hash: "valor" }
-function _isSenhaKey(key) {
-  return key.startsWith('senha_') || key === 'manutencao_senha';
-}
-
-// Empacota primitivos para salvar no RTDB (que não aceita strings soltas na raiz)
-function _wrap(key, v) {
-  if (_isSenhaKey(key))              return { hash: String(v ?? '') };
-  if (typeof v === 'object' && v !== null) return v;
-  return { _v: v === null || v === undefined ? null : String(v) };
+// Empacota valor para salvar no RTDB
+// Objetos → direto. Primitivos → { _s: "valor" }
+function _pack(v) {
+  if (v === null || v === undefined)           return { _s: null };
+  if (typeof v === 'object')                   return _clean(v);
+  return { _s: String(v) };
 }
 
 // Desempacota valor lido do RTDB
-function _unwrap(key, v) {
+function _unpack(v) {
   if (v === null || v === undefined) return null;
-  if (_isSenhaKey(key))              return (typeof v === 'object' && 'hash' in v) ? v.hash : v;
-  if (typeof v === 'object' && '_v' in v) return v._v;
-  if (typeof v === 'object' && '__v' in v) return v.__v; // compatibilidade legada
+  if (typeof v === 'object' && '_s' in v) return v._s;
   return v;
 }
 
+// ---- Operações RTDB ----
+
 async function _dbSet(key, value) {
-  const path = _rtdbPath(key);
-  if (!path) return;
-  try { await rtdb.ref(path).set(_sanitize(_wrap(key, value))); }
-  catch(e) { console.warn('rtdb set:', key, e.message); }
+  const p = _path(key);
+  if (!p) return;
+  try {
+    await rtdb.ref(p).set(_pack(value));
+  } catch(e) { console.error('[rtdb set]', key, e.code, e.message); }
 }
 
 async function _dbGet(key) {
-  const path = _rtdbPath(key);
-  if (!path) return null;
+  const p = _path(key);
+  if (!p) return null;
   try {
-    const snap = await rtdb.ref(path).get();
-    return snap.exists() ? _unwrap(key, snap.val()) : null;
-  } catch(e) { console.warn('rtdb get:', key, e.message); return null; }
+    const snap = await rtdb.ref(p).get();
+    return snap.exists() ? _unpack(snap.val()) : null;
+  } catch(e) { console.error('[rtdb get]', key, e.code, e.message); return null; }
 }
 
 async function _dbDel(key) {
-  const path = _rtdbPath(key);
-  if (!path) return;
-  try { await rtdb.ref(path).remove(); }
-  catch(e) { console.warn('rtdb del:', key, e.message); }
+  const p = _path(key);
+  if (!p) return;
+  try { await rtdb.ref(p).remove(); }
+  catch(e) { console.error('[rtdb del]', key, e.code, e.message); }
 }
 
 function _dbListen(key, callback) {
-  const path = _rtdbPath(key);
-  if (!path) return;
-  // Cancela listener anterior se existir
-  if (_listeners[key]) { rtdb.ref(_listeners[key].path).off('value', _listeners[key].fn); }
+  const p = _path(key);
+  if (!p) return;
+  if (_listeners[key]) {
+    rtdb.ref(_listeners[key]).off('value', _listeners[key+'_fn']);
+  }
   const fn = snap => {
-    const val = snap.exists() ? _unwrap(key, snap.val()) : null;
-    // Atualiza cache e localStorage
+    const val = snap.exists() ? _unpack(snap.val()) : null;
     _cache[key] = val;
     try {
       if (val === null) localStorage.removeItem(key);
@@ -147,30 +135,35 @@ function _dbListen(key, callback) {
     } catch {}
     callback(val);
   };
-  rtdb.ref(path).on('value', fn, e => console.warn('rtdb listen:', key, e.message));
-  _listeners[key] = { path, fn };
+  rtdb.ref(p).on('value', fn, e => console.error('[rtdb listen]', key, e.message));
+  _listeners[key]       = p;
+  _listeners[key+'_fn'] = fn;
 }
 
 function _dbUnlisten(key) {
   if (!_listeners[key]) return;
-  rtdb.ref(_listeners[key].path).off('value', _listeners[key].fn);
+  rtdb.ref(_listeners[key]).off('value', _listeners[key+'_fn']);
   delete _listeners[key];
+  delete _listeners[key+'_fn'];
 }
 
-// ============================================================
-// OBJETO S HÍBRIDO — API idêntica ao localStorage original
-// ============================================================
+// ================================================================
+// OBJETO S — API idêntica ao localStorage original
+// Lê: cache em memória → localStorage
+// Escreve: cache + localStorage + RTDB (async, não bloqueia UI)
+// ================================================================
 const S = {
   get(k) {
     if (k in _cache) {
       const v = _cache[k];
-      return (v !== null && typeof v === 'object') ? JSON.stringify(v) : (v === null ? null : String(v));
+      if (v === null || v === undefined) return null;
+      return typeof v === 'object' ? JSON.stringify(v) : String(v);
     }
     try { return localStorage.getItem(k); } catch { return null; }
   },
   set(k, v) {
     _cache[k] = v;
-    try { localStorage.setItem(k, v); } catch {}
+    try { localStorage.setItem(k, String(v ?? '')); } catch {}
     _dbSet(k, v);
   },
   del(k) {
@@ -188,7 +181,8 @@ const S = {
       try { return JSON.parse(String(v)); } catch { return null; }
     }
     const v = this.get(k);
-    try { return v ? JSON.parse(v) : null; } catch { return null; }
+    if (!v) return null;
+    try { return JSON.parse(v); } catch { return null; }
   },
   setObj(k, v) {
     _cache[k] = v;
@@ -197,15 +191,15 @@ const S = {
   }
 };
 
-// ============================================================
-// PREFETCH
-// ============================================================
+// ================================================================
+// PREFETCH — carrega dados do RTDB para cache antes de mostrar UI
+// ================================================================
 async function prefetchUsuario(usuario) {
-  const chaves = [
+  const keys = [
     'plan_'+usuario, 'horario_'+usuario, 'histHorario_'+usuario,
     'discCustom_'+usuario, 'msgs_'+usuario, 'dataInicio_'+usuario, 'foto_'+usuario
   ];
-  await Promise.all(chaves.map(async k => {
+  await Promise.all(keys.map(async k => {
     const v = await _dbGet(k);
     if (v !== null) {
       _cache[k] = v;
@@ -220,27 +214,37 @@ async function prefetchTodosUsuarios() {
     if (!snap.exists()) return;
     snap.forEach(child => {
       const u = child.val();
-      _cache['usuario_'+child.key] = u;
-      try { localStorage.setItem('usuario_'+child.key, JSON.stringify(u)); } catch {}
+      if (!u) return;
+      const unpacked = _unpack(u);
+      const perfil = typeof unpacked === 'object' ? unpacked : u;
+      _cache['usuario_'+child.key] = perfil;
+      try { localStorage.setItem('usuario_'+child.key, JSON.stringify(perfil)); } catch {}
     });
-  } catch(e) { console.warn('prefetch usuarios:', e.message); }
+  } catch(e) { console.error('prefetchTodosUsuarios:', e.message); }
 }
 
-// ============================================================
+// ================================================================
 // AUTENTICAÇÃO ANÔNIMA
-// ============================================================
+// ================================================================
 async function ensureAuth() {
-  if (auth.currentUser) return;
-  try { await auth.signInAnonymously(); } catch(e) { console.warn('auth:', e.message); }
+  if (auth.currentUser) return auth.currentUser;
+  try {
+    const cred = await auth.signInAnonymously();
+    return cred.user;
+  } catch(e) {
+    console.error('ensureAuth:', e.code, e.message);
+    throw e;
+  }
 }
 
-// ============================================================
+// ================================================================
 // LISTENERS EM TEMPO REAL
-// ============================================================
+// ================================================================
 function iniciarListenerInbox() {
   _dbListen('coord_inbox', val => {
-    _cache['coord_inbox'] = Array.isArray(val) ? val : (val && typeof val === 'object' ? Object.values(val) : []);
-    try { localStorage.setItem('coord_inbox', JSON.stringify(_cache['coord_inbox'])); } catch {}
+    const inbox = Array.isArray(val) ? val : (val && typeof val === 'object' ? Object.values(val) : []);
+    _cache['coord_inbox'] = inbox;
+    try { localStorage.setItem('coord_inbox', JSON.stringify(inbox)); } catch {}
     if (typeof renderInboxCoordenador === 'function') { try { renderInboxCoordenador(); } catch {} }
   });
 }
@@ -254,22 +258,23 @@ function iniciarListenerMsgs(usuario) {
   });
 }
 
-// Monitor de conexão nativo do RTDB
+// ================================================================
+// MONITOR DE CONEXÃO
+// ================================================================
 rtdb.ref('.info/connected').on('value', snap => {
   const el = document.getElementById('fbStatus');
   if (!el) return;
   el.style.display = '';
   if (snap.val() === true) {
-    el.textContent = '\u{1F7E2} Online';
+    el.textContent = '🟢 Online';
     el.style.background = '#d1fae5';
     el.style.color = '#065f46';
   } else {
-    el.textContent = '\u{1F534} Offline';
+    el.textContent = '🔴 Offline';
     el.style.background = '#fee2e2';
     el.style.color = '#991b1b';
   }
 });
-
 </script>
 <style>
 /* ===== DESIGN TOKENS ===== */
@@ -1674,15 +1679,12 @@ function mostrarPrimeiroAcesso() {
   document.getElementById('primeiroAcessoForm').classList.remove('hidden');
 }
 
-// Lê a senha de um usuário no RTDB
+// Lê a senha de um usuário sempre desembrulhando o _wrap do RTDB
 async function _getSenha(usuario) {
   if (usuario === MANUTENCAO.usuario) {
     return (await _dbGet('manutencao_senha')) || 'manut@2025';
   }
-  const snap = await rtdb.ref('senhas/'+_sanitizeKey(usuario)).get();
-  if (!snap.exists()) return null;
-  const v = snap.val();
-  return (v && typeof v === 'object' && 'hash' in v) ? v.hash : v;
+  return await _dbGet('senha_'+usuario);
 }
 
 async function fazerLogin() {
@@ -1733,9 +1735,7 @@ async function fazerLogin() {
     if (!perfil) { toast('Usuário não encontrado','error'); return; }
 
     // Verificar senha no RTDB
-    const senhaSnap = await rtdb.ref('senhas/'+_sanitizeKey(perfil.usuario)).get();
-    const senhaRaw = senhaSnap.exists() ? senhaSnap.val() : null;
-    const senhaAtual = senhaRaw && typeof senhaRaw === 'object' ? (senhaRaw.hash ?? null) : senhaRaw;
+    const senhaAtual = await _dbGet('senha_'+perfil.usuario);
     if (!senhaAtual || senhaAtual !== pwd) { toast('Senha incorreta','error'); return; }
     _cache['senha_'+perfil.usuario] = senhaAtual;
 
@@ -1861,16 +1861,16 @@ function iniciarApp() {
   const tipo = usuarioLogado.tipo;
   const u    = usuarioLogado.usuario;
 
-  // Ativar listeners em tempo real para TODOS os dados relevantes
   iniciarListenerMsgs(u);
 
   if (tipo === 'coordenador') {
     iniciarListenerInbox();
-    // Coordenador escuta todos os usuários para ver novos cadastros
+    // Escuta todos os usuários em tempo real
     rtdb.ref('usuarios').on('value', snap => {
       if (!snap.exists()) return;
       snap.forEach(child => {
-        const perfil = child.val();
+        const perfil = _unpack(child.val()) || child.val();
+        if (typeof perfil !== 'object') return;
         _cache['usuario_'+child.key] = perfil;
         try { localStorage.setItem('usuario_'+child.key, JSON.stringify(perfil)); } catch {}
       });
@@ -1887,36 +1887,28 @@ function iniciarApp() {
       try { localStorage.setItem('plan_'+u, JSON.stringify(planejamentos)); } catch {}
       if (semanaAtual >= 0) { try { renderSemanas(); } catch {} }
     });
-
     _dbListen('horario_'+u, val => {
-      const raw = (val && typeof val === 'object') ? val : {};
-      horarioAtivo = normalizarHorario(raw);
-      try { localStorage.setItem('horario_'+u, JSON.stringify(raw)); } catch {}
-      // Re-renderiza horário se estiver visível
+      horarioAtivo = normalizarHorario((val && typeof val === 'object') ? val : {});
+      try { localStorage.setItem('horario_'+u, JSON.stringify(val||{})); } catch {}
       if (typeof renderGradeHorario === 'function') { try { renderGradeHorario(); } catch {} }
     });
-
     _dbListen('discCustom_'+u, val => {
-      disciplinasCustom = Array.isArray(val) ? val : (val ? Object.values(val) : []);
+      disciplinasCustom = Array.isArray(val) ? val : (val && typeof val === 'object' ? Object.values(val) : []);
       try { localStorage.setItem('discCustom_'+u, JSON.stringify(disciplinasCustom)); } catch {}
     });
-
     _dbListen('histHorario_'+u, val => {
       if (!val) return;
       historicoHorarios = Array.isArray(val) ? val : Object.values(val);
       historicoHorarios = historicoHorarios.map(v => ({ ...v, horario: normalizarHorario(v.horario||{}) }));
       try { localStorage.setItem('histHorario_'+u, JSON.stringify(historicoHorarios)); } catch {}
     });
-
     _dbListen('dataInicio_'+u, val => {
       if (!val) return;
-      const data = typeof val === 'object' ? val._v : val;
-      if (!data) return;
+      const data = typeof val === 'string' ? val : String(val);
       const el = document.getElementById('inicioLetivo');
       if (el && el.value !== data) { el.value = data; gerarSemanas(data); }
     });
-
-    // Carregar dados iniciais do cache (já preenchido pelo prefetch no login)
+    // Carrega dados iniciais do cache (populado pelo prefetch no login)
     carregarDados();
   }
 }
@@ -1924,7 +1916,6 @@ function iniciarApp() {
 function carregarDados() {
   if (!usuarioLogado || usuarioLogado.tipo==='coordenador' || usuarioLogado.tipo==='manutencao') return;
   const u = usuarioLogado.usuario;
-  // Lê do cache (populado pelo prefetchUsuario no login)
   planejamentos     = S.getObj('plan_'+u) || {};
   disciplinasCustom = S.getObj('discCustom_'+u) || [];
   historicoHorarios = S.getObj('histHorario_'+u) || [];
@@ -3932,13 +3923,15 @@ document.addEventListener('DOMContentLoaded', async () => {
     await ensureAuth();
 
     // Seed coordenador padrão no RTDB se não existir
-    const coordSnap = await rtdb.ref('usuarios/'+_sanitizeKey(COORDENADOR_SEED.usuario)).get();
+    const coordId  = _sk(COORDENADOR_SEED.usuario);
+    const coordSnap = await rtdb.ref('usuarios/'+coordId).get();
     if (!coordSnap.exists()) {
-      await rtdb.ref('usuarios/'+_sanitizeKey(COORDENADOR_SEED.usuario)).set(COORDENADOR_SEED);
-      await rtdb.ref('senhas/'+_sanitizeKey(COORDENADOR_SEED.usuario)).set({ hash: SENHA_COORDENADOR_PADRAO });
+      await rtdb.ref('usuarios/'+coordId).set(_clean(COORDENADOR_SEED));
+      await rtdb.ref('senhas/'+coordId).set(_pack(SENHA_COORDENADOR_PADRAO));
       _cache['usuario_'+COORDENADOR_SEED.usuario] = COORDENADOR_SEED;
       _cache['senha_'+COORDENADOR_SEED.usuario] = SENHA_COORDENADOR_PADRAO;
     } else {
+      // Garante cache local
       _cache['usuario_'+COORDENADOR_SEED.usuario] = coordSnap.val();
       try { localStorage.setItem('usuario_'+COORDENADOR_SEED.usuario, JSON.stringify(coordSnap.val())); } catch {}
     }
