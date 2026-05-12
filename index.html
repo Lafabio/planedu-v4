@@ -3944,7 +3944,11 @@ document.addEventListener('DOMContentLoaded', async () => {
       const perfil = S.getObj('usuario_'+sessao.usuario);
       if (perfil) { usuarioLogado = perfil; splash.remove(); iniciarApp(); _setupEventListeners(); return; }
     }
-    toast('⚠️ Modo offline — dados locais','warn', 5000);
+    // Em mobile pode haver falha transitória de Firebase/Auth sem estar realmente offline.
+    // Só exibe aviso offline quando o navegador reporta ausência de conexão.
+    if (navigator && navigator.onLine === false) {
+      toast('⚠️ Modo offline — dados locais','warn', 5000);
+    }
   }
 
   splash.remove();
