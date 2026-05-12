@@ -7,8 +7,6 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <script src="https://unpkg.com/html-docx-js/dist/html-docx.js"></script>
-<script src="https://apis.google.com/js/api.js" async defer></script>
-<script src="https://accounts.google.com/gsi/client" async defer></script>
 <!-- Firebase SDK (Realtime Database — plano gratuito) -->
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
@@ -68,18 +66,18 @@ function _rtdbPath(key) {
   if (key === 'manutencao_senha')     return 'senhas/manutencao/hash';
   if (key.startsWith('usuario_'))     return 'usuarios/'     + _sanitizeKey(key.slice(8));
   if (key.startsWith('senha_'))       return 'senhas/'       + _sanitizeKey(key.slice(6)) + '/hash';
-  if (key.startsWith('plan_'))        return 'planejamentos/'+ key.slice(5);
-  if (key.startsWith('horario_'))     return 'horarios/'     + key.slice(8);
-  if (key.startsWith('histHorario_')) return 'histHorarios/' + key.slice(12);
-  if (key.startsWith('discCustom_'))  return 'discCustom/'   + key.slice(11);
-  if (key.startsWith('msgs_'))        return 'msgs/'         + key.slice(5);
+  if (key.startsWith('plan_'))        return 'planejamentos/'+ _sanitizeKey(key.slice(5));
+  if (key.startsWith('horario_'))     return 'horarios/'     + _sanitizeKey(key.slice(8));
+  if (key.startsWith('histHorario_')) return 'histHorarios/' + _sanitizeKey(key.slice(12));
+  if (key.startsWith('discCustom_'))  return 'discCustom/'   + _sanitizeKey(key.slice(11));
+  if (key.startsWith('msgs_'))        return 'msgs/'         + _sanitizeKey(key.slice(5));
   if (key === 'coord_inbox')          return 'coordInbox';
   if (key.startsWith('chat_'))        return 'chat/'         + key.slice(5).replace(/[^a-zA-Z0-9_-]/g,'_');
   if (key.startsWith('coordVisita_')) return 'coordVisitas/' + key.slice(12).replace(/[^a-zA-Z0-9_-]/g,'_');
-  if (key.startsWith('rec_'))         return 'recSenha/'     + key.slice(4);
-  if (key.startsWith('dataInicio_'))  return 'config/'       + key;
+  if (key.startsWith('rec_'))         return 'recSenha/'     + _sanitizeKey(key.slice(4));
+  if (key.startsWith('dataInicio_'))  return 'config/'       + key.replace(/[^a-zA-Z0-9_-]/g,'_');
   if (key.startsWith('apikey_'))      return 'config/'       + key;
-  if (key.startsWith('foto_'))        return 'fotos/'        + key.slice(5);
+  if (key.startsWith('foto_'))        return 'fotos/'        + _sanitizeKey(key.slice(5));
   return 'config/' + key.replace(/[^a-zA-Z0-9_-]/g,'_');
 }
 
@@ -1193,7 +1191,6 @@ h1, h2, h3, h4 { font-weight: 700; letter-spacing: -0.025em; line-height: 1.3; }
           <div id="statusEnvioSemana" class="hidden"></div>
           <button class="btn btn-ghost btn-sm" onclick="abrirBNCC()">📖 BNCC</button>
           <button class="btn btn-success btn-sm" onclick="exportarSemanaDOCX()">📄 Exportar DOCX</button>
-          <button class="btn btn-drive btn-sm" onclick="exportarParaGoogleDrive()">🔗 Google Drive</button>
           <button id="btnEnviarCoordenacao" class="btn btn-coord btn-sm hidden" onclick="enviarParaCoordenacao()">🎓 Enviar para Coordenação</button>
           <button id="btnApagarSemana" class="btn btn-danger btn-sm" onclick="apagarTodaSemana()">🗑️ Apagar</button>
         </div>
@@ -2592,7 +2589,6 @@ function coordSelecionarSemana(idxStr) {
         <button class="btn btn-success btn-sm" onclick="coordMarcarOk('${usuarioProf}',${idx})">✅ Ok — Marcar como visto</button>
       `}
       <button class="btn btn-ghost btn-sm" onclick="exportarSemanaCoordDOCX('${usuarioProf}',${idx})">📄 Exportar DOCX</button>
-      <button class="btn btn-drive btn-sm" onclick="exportarSemanaCoordDrive('${usuarioProf}',${idx})">🔗 Google Drive</button>
     </div>
   </div>`;
 
