@@ -194,15 +194,21 @@ async function prefetchUsuario(usuario) {
 
 async function migrarDadosLocaisUsuarioParaRTDB(usuario) {
   if (!usuario) return;
+  const vazio = (v) => {
+    if (v === null || v === undefined) return true;
+    if (Array.isArray(v)) return v.length === 0;
+    if (typeof v === 'object') return Object.keys(v).length === 0;
+    return false;
+  };
   const chaves = [
     'plan_'+usuario, 'horario_'+usuario, 'histHorario_'+usuario,
     'discCustom_'+usuario, 'msgs_'+usuario, 'dataInicio_'+usuario, 'foto_'+usuario
   ];
   for (const k of chaves) {
     const local = S.getObj(k);
-    if (local === null || local === undefined) continue;
+    if (vazio(local)) continue;
     const remoto = await _dbGet(k);
-    if (remoto === null || remoto === undefined) {
+    if (vazio(remoto)) {
       await _dbSet(k, local);
     }
   }
