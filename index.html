@@ -7,8 +7,6 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <script src="https://unpkg.com/html-docx-js/dist/html-docx.js"></script>
-<script src="https://apis.google.com/js/api.js" async defer></script>
-<script src="https://accounts.google.com/gsi/client" async defer></script>
 <!-- Firebase SDK (Realtime Database — plano gratuito) -->
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
@@ -68,18 +66,18 @@ function _rtdbPath(key) {
   if (key === 'manutencao_senha')     return 'senhas/manutencao/hash';
   if (key.startsWith('usuario_'))     return 'usuarios/'     + _sanitizeKey(key.slice(8));
   if (key.startsWith('senha_'))       return 'senhas/'       + _sanitizeKey(key.slice(6)) + '/hash';
-  if (key.startsWith('plan_'))        return 'planejamentos/'+ key.slice(5);
-  if (key.startsWith('horario_'))     return 'horarios/'     + key.slice(8);
-  if (key.startsWith('histHorario_')) return 'histHorarios/' + key.slice(12);
-  if (key.startsWith('discCustom_'))  return 'discCustom/'   + key.slice(11);
-  if (key.startsWith('msgs_'))        return 'msgs/'         + key.slice(5);
+  if (key.startsWith('plan_'))        return 'planejamentos/'+ _sanitizeKey(key.slice(5));
+  if (key.startsWith('horario_'))     return 'horarios/'     + _sanitizeKey(key.slice(8));
+  if (key.startsWith('histHorario_')) return 'histHorarios/' + _sanitizeKey(key.slice(12));
+  if (key.startsWith('discCustom_'))  return 'discCustom/'   + _sanitizeKey(key.slice(11));
+  if (key.startsWith('msgs_'))        return 'msgs/'         + _sanitizeKey(key.slice(5));
   if (key === 'coord_inbox')          return 'coordInbox';
   if (key.startsWith('chat_'))        return 'chat/'         + key.slice(5).replace(/[^a-zA-Z0-9_-]/g,'_');
   if (key.startsWith('coordVisita_')) return 'coordVisitas/' + key.slice(12).replace(/[^a-zA-Z0-9_-]/g,'_');
-  if (key.startsWith('rec_'))         return 'recSenha/'     + key.slice(4);
-  if (key.startsWith('dataInicio_'))  return 'config/'       + key;
+  if (key.startsWith('rec_'))         return 'recSenha/'     + _sanitizeKey(key.slice(4));
+  if (key.startsWith('dataInicio_'))  return 'config/'       + key.replace(/[^a-zA-Z0-9_-]/g,'_');
   if (key.startsWith('apikey_'))      return 'config/'       + key;
-  if (key.startsWith('foto_'))        return 'fotos/'        + key.slice(5);
+  if (key.startsWith('foto_'))        return 'fotos/'        + _sanitizeKey(key.slice(5));
   return 'config/' + key.replace(/[^a-zA-Z0-9_-]/g,'_');
 }
 
@@ -194,6 +192,28 @@ async function prefetchUsuario(usuario) {
   }));
 }
 
+async function migrarDadosLocaisUsuarioParaRTDB(usuario) {
+  if (!usuario) return;
+  const vazio = (v) => {
+    if (v === null || v === undefined) return true;
+    if (Array.isArray(v)) return v.length === 0;
+    if (typeof v === 'object') return Object.keys(v).length === 0;
+    return false;
+  };
+  const chaves = [
+    'plan_'+usuario, 'horario_'+usuario, 'histHorario_'+usuario,
+    'discCustom_'+usuario, 'msgs_'+usuario, 'dataInicio_'+usuario, 'foto_'+usuario
+  ];
+  for (const k of chaves) {
+    const local = S.getObj(k);
+    if (vazio(local)) continue;
+    const remoto = await _dbGet(k);
+    if (vazio(remoto)) {
+      await _dbSet(k, local);
+    }
+  }
+}
+
 async function prefetchTodosUsuarios() {
   try {
     const snap = await rtdb.ref('usuarios').get();
@@ -209,9 +229,16 @@ async function prefetchTodosUsuarios() {
 // ============================================================
 // AUTENTICAÇÃO ANÔNIMA
 // ============================================================
-async function ensureAuth() {
+async function ensureAuth(strict = false) {
   if (auth.currentUser) return;
-  try { await auth.signInAnonymously(); } catch(e) { console.warn('auth:', e.message); }
+  try {
+    await auth.signInAnonymously();
+  } catch(e) {
+    console.warn('auth:', e.message);
+    if (strict) {
+      throw new Error('Falha na autenticação com o servidor. Verifique as regras do Firebase Auth/RTDB.');
+    }
+  }
 }
 
 // ============================================================
@@ -1188,7 +1215,6 @@ h1, h2, h3, h4 { font-weight: 700; letter-spacing: -0.025em; line-height: 1.3; }
           <div id="statusEnvioSemana" class="hidden"></div>
           <button class="btn btn-ghost btn-sm" onclick="abrirBNCC()">📖 BNCC</button>
           <button class="btn btn-success btn-sm" onclick="exportarSemanaDOCX()">📄 Exportar DOCX</button>
-          <button class="btn btn-drive btn-sm" onclick="exportarParaGoogleDrive()">🔗 Google Drive</button>
           <button id="btnEnviarCoordenacao" class="btn btn-coord btn-sm hidden" onclick="enviarParaCoordenacao()">🎓 Enviar para Coordenação</button>
           <button id="btnApagarSemana" class="btn btn-danger btn-sm" onclick="apagarTodaSemana()">🗑️ Apagar</button>
         </div>
@@ -1663,6 +1689,29 @@ async function _getSenha(usuario) {
   return snap.exists() ? _unwrap(snap.val()) : null;
 }
 
+async function _getSenhaComFallback(perfil, loginInput) {
+  const candidatos = [];
+  const add = (v) => {
+    const k = String(v || '').trim();
+    if (!k) return;
+    if (!candidatos.includes(k)) candidatos.push(k);
+  };
+  add(perfil?.usuario);
+  add(loginInput);
+  const emailBase = String(loginInput || '').trim().toLowerCase();
+  if (emailBase.includes('@')) add(emailBase.split('@')[0]);
+  const perfilEmail = String(perfil?.email || '').trim().toLowerCase();
+  if (perfilEmail.includes('@')) add(perfilEmail.split('@')[0]);
+
+  for (const key of candidatos) {
+    const snap = await rtdb.ref('senhas/'+_sanitizeKey(key)+'/hash').get();
+    if (snap.exists()) {
+      return { senha: _unwrap(snap.val()), chave: key };
+    }
+  }
+  return { senha: null, chave: null };
+}
+
 async function fazerLogin() {
   const usr = document.getElementById('loginUsuario').value.trim();
   const pwd = document.getElementById('loginSenha').value;
@@ -1673,7 +1722,7 @@ async function fazerLogin() {
   if (btnLogin) { btnLogin.disabled = true; btnLogin.textContent = '🔄 Verificando...'; }
 
   try {
-    await ensureAuth();
+    await ensureAuth(true);
 
     // Manutenção
     const manutPwd = (await _dbGet('manutencao_senha')) || S.get('manutencao_senha') || 'manut@2025';
@@ -1687,16 +1736,12 @@ async function fazerLogin() {
 
     // Buscar perfil do RTDB
     let perfil = null;
-    // Verifica se o usr contém caracteres inválidos para path do RTDB (email, pontos, etc.)
-    const usrTemCaracteresInvalidos = /[.#$\[\]@]/.test(usr);
-    if (!usrTemCaracteresInvalidos) {
-      // Tenta pelo login direto (username simples)
-      const snapDireto = await rtdb.ref('usuarios/'+usr).get();
-      if (snapDireto.exists()) {
-        perfil = snapDireto.val();
-        _cache['usuario_'+usr] = perfil;
-        try { localStorage.setItem('usuario_'+usr, JSON.stringify(perfil)); } catch {}
-      }
+    // Tenta pelo login direto com chave sanitizada (suporta username/email como usuário)
+    const snapDireto = await rtdb.ref('usuarios/'+_sanitizeKey(usr)).get();
+    if (snapDireto.exists()) {
+      perfil = snapDireto.val();
+      _cache['usuario_'+(perfil?.usuario || usr)] = perfil;
+      try { localStorage.setItem('usuario_'+(perfil?.usuario || usr), JSON.stringify(perfil)); } catch {}
     }
     if (!perfil) {
       // Busca por email ou username não encontrado — faz prefetch de todos e filtra
@@ -1705,17 +1750,17 @@ async function fazerLogin() {
       // Se não achou por email, tenta buscar por campo usuario
       if (!perfil) {
         const todos = Object.values(_cache).filter(v => v && typeof v === 'object' && v.usuario);
-        perfil = todos.find(u => u.usuario === usr) || null;
+        const usrNorm = String(usr || '').trim().toLowerCase();
+        perfil = todos.find(u => String(u.usuario || '').trim().toLowerCase() === usrNorm) || null;
       }
     }
     if (!perfil) { toast('Usuário não encontrado','error'); return; }
 
     // Verificar senha no RTDB
-    const senhaSnap = await rtdb.ref('senhas/'+_sanitizeKey(perfil.usuario)+'/hash').get();
-    const senhaRaw = senhaSnap.exists() ? senhaSnap.val() : null;
-    const senhaAtual = _unwrap(senhaRaw);
+    const senhaRes = await _getSenhaComFallback(perfil, usr);
+    const senhaAtual = senhaRes.senha;
     if (!senhaAtual || senhaAtual !== pwd) { toast('Senha incorreta','error'); return; }
-    _cache['senha_'+perfil.usuario] = senhaAtual;
+    _cache['senha_'+(senhaRes.chave || perfil.usuario)] = senhaAtual;
 
     // Primeiro acesso?
     if (perfil.primeiroAcesso) {
@@ -1728,6 +1773,9 @@ async function fazerLogin() {
     if (document.getElementById('lembrarUsuario').checked) S.set('lembrado', usr);
     else S.del('lembrado');
     S.setObj('sessao', usuarioLogado);
+
+    // Migração de segurança: sobe dados locais legados para RTDB (se remoto vazio)
+    await migrarDadosLocaisUsuarioParaRTDB(perfil.usuario);
 
     // Prefetch dados do usuário do Firestore
     toast('Carregando dados...','info', 1500);
@@ -1762,11 +1810,15 @@ function confirmarPrimeiroAcesso() {
 }
 
 function buscarPorEmail(email) {
+  const alvo = String(email || '').trim().toLowerCase();
   // Busca no cache (_cache tem os dados do Firestore)
   for (const k in _cache) {
     if (k.startsWith('usuario_')) {
       const u = _cache[k];
-      if (u && typeof u === 'object' && (u.email===email || u.usuario===email)) return u;
+      if (!u || typeof u !== 'object') continue;
+      const uEmail = String(u.email || '').trim().toLowerCase();
+      const uUser  = String(u.usuario || '').trim().toLowerCase();
+      if (uEmail===alvo || uUser===alvo) return u;
     }
   }
   // Fallback: localStorage (para dados legados ou offline)
@@ -1774,7 +1826,10 @@ function buscarPorEmail(email) {
     const k = S.key(i);
     if (k && k.startsWith('usuario_')) {
       const u = S.getObj(k);
-      if (u && (u.email===email || u.usuario===email)) return u;
+      if (!u || typeof u !== 'object') continue;
+      const uEmail = String(u.email || '').trim().toLowerCase();
+      const uUser  = String(u.usuario || '').trim().toLowerCase();
+      if (uEmail===alvo || uUser===alvo) return u;
     }
   }
   return null;
@@ -2561,7 +2616,6 @@ function coordSelecionarSemana(idxStr) {
         <button class="btn btn-success btn-sm" onclick="coordMarcarOk('${usuarioProf}',${idx})">✅ Ok — Marcar como visto</button>
       `}
       <button class="btn btn-ghost btn-sm" onclick="exportarSemanaCoordDOCX('${usuarioProf}',${idx})">📄 Exportar DOCX</button>
-      <button class="btn btn-drive btn-sm" onclick="exportarSemanaCoordDrive('${usuarioProf}',${idx})">🔗 Google Drive</button>
     </div>
   </div>`;
 
@@ -3184,7 +3238,6 @@ async function gerarPlanoComIA(){
   const disciplinaNome=document.getElementById('modalDisciplina').textContent;
   const turma=document.getElementById('modalTurma').textContent;
 
-  const metKey=metTexto.replace(/^[^\s]+\s+/,'');
   const prompt=`Você é um especialista em planejamento pedagógico SESI. Crie um plano de aula completo para o SGN.
 
 DADOS:
@@ -3195,48 +3248,28 @@ DADOS:
 - Habilidade BNCC: ${hab||'Não especificada'}
 ${obs?`- Observações: ${obs}`:''}
 
-ESTRUTURA OBRIGATÓRIA:
+ESTRUTURA OBRIGATÓRIA (SGN):
 
 **TÍTULO**
 ${titulo}
 
-**OBJETIVO GERAL**
-(Um objetivo claro, iniciado com verbo no infinitivo)
-
-**OBJETIVOS ESPECÍFICOS**
-(2-3 objetivos, um por linha, iniciados com verbo no infinitivo)
+**OBJETIVOS DA AULA**
+(Descrição de qual o objetivo da aula)
 
 **HABILIDADE BNCC**
 ${hab||'A ser definida pelo professor'}
 
 **OBJETO DE CONHECIMENTO**
-(Conceitos e conteúdos trabalhados)
+(Deixar claro quais os objetos de conhecimento que serão desenvolvidos)
 
-**METODOLOGIA: ${metTexto}**
-(Justificativa da escolha metodológica)
+**MOMENTOS**
+(Descrição dos passos da aula e como será conduzida: metodologias, rotinas, estratégias, recursos, espaços e pessoas. Considere a metodologia selecionada: ${metTexto})
 
-**DESENVOLVIMENTO DA AULA**
-
-*Abertura (10 min):*
-(Situação-problema ou engajamento inicial)
-
-*Desenvolvimento (25 min):*
-(Atividades detalhadas seguindo a metodologia ${metKey})
-
-*Consolidação (10 min):*
-(Síntese e avaliação formativa)
-
-**RECURSOS DIDÁTICOS**
-(Materiais, tecnologias e espaços necessários)
-
-**AVALIAÇÃO**
-(Critérios e instrumentos avaliativos)
+**ESTRATÉGIAS**
+(Descrever como espera conseguir as evidências através das estratégias de sala de aula)
 
 **TAREFA DE CASA**
-(Atividade complementar opcional)
-
-**REFERÊNCIAS**
-(Indicações bibliográficas ou digitais)
+(Definir se e quais atividades de casa serão propostas, especialmente para Ensino Fundamental)
 
 Retorne APENAS o plano formatado acima, sem introduções ou comentários adicionais.`;
 
@@ -3265,6 +3298,7 @@ Retorne APENAS o plano formatado acima, sem introduções ou comentários adicio
       }
     }
     if(!texto)throw new Error('Nenhum modelo retornou conteúdo.');
+    texto = normalizarPlanoParaSGN(texto);
     const k='sem_'+semana;
     if(!planejamentos[k])planejamentos[k]={aulas:criarGrade(semanas[semana].inicio),anotacoes:''};
     planejamentos[k].aulas[dia][aula].conteudo=texto;
@@ -3275,6 +3309,22 @@ Retorne APENAS o plano formatado acima, sem introduções ou comentários adicio
   }finally{
     btn.disabled=false;btn.innerHTML='✨ Gerar planejamento';
   }
+}
+
+function normalizarPlanoParaSGN(texto=''){
+  let t = String(texto || '');
+  // Normalizações comuns quando o modelo retorna formato antigo
+  t = t.replace(/\*\*OBJETIVO GERAL\*\*/gi, '**OBJETIVOS DA AULA**');
+  t = t.replace(/\*\*OBJETIVOS ESPEC[ÍI]FICOS\*\*/gi, '**ESTRATÉGIAS**');
+  t = t.replace(/\*\*DESENVOLVIMENTO DA AULA\*\*/gi, '**MOMENTOS**');
+  t = t.replace(/\*\*AVALIA[ÇC][ÃA]O\*\*/gi, '**ESTRATÉGIAS**');
+  t = t.replace(/\*\*RECURSOS DID[ÁA]TICOS\*\*/gi, '**MOMENTOS**');
+  // Garante blocos mínimos do padrão SGN
+  const blocos = ['**OBJETIVOS DA AULA**','**OBJETO DE CONHECIMENTO**','**MOMENTOS**','**ESTRATÉGIAS**','**TAREFA DE CASA**'];
+  for (const b of blocos) {
+    if (!t.includes(b)) t += `\n\n${b}\n(A completar pelo professor)`;
+  }
+  return t;
 }
 
 // ============================================================
@@ -3893,12 +3943,13 @@ document.addEventListener('DOMContentLoaded', async () => {
         return;
       }
       // Buscar perfil atualizado do RTDB
-      const snapPerfil = await rtdb.ref('usuarios/'+sessao.usuario).get();
+      const snapPerfil = await rtdb.ref('usuarios/'+_sanitizeKey(sessao.usuario)).get();
       if (snapPerfil.exists()) {
         usuarioLogado = snapPerfil.val();
         _cache['usuario_'+sessao.usuario] = usuarioLogado;
         try { localStorage.setItem('usuario_'+sessao.usuario, JSON.stringify(usuarioLogado)); } catch {}
         S.setObj('sessao', usuarioLogado);
+        await migrarDadosLocaisUsuarioParaRTDB(sessao.usuario);
         await prefetchUsuario(sessao.usuario);
         if (usuarioLogado.tipo === 'coordenador') await prefetchTodosUsuarios();
         splash.remove();
@@ -3916,7 +3967,11 @@ document.addEventListener('DOMContentLoaded', async () => {
       const perfil = S.getObj('usuario_'+sessao.usuario);
       if (perfil) { usuarioLogado = perfil; splash.remove(); iniciarApp(); _setupEventListeners(); return; }
     }
-    toast('⚠️ Modo offline — dados locais','warn', 5000);
+    // Em mobile pode haver falha transitória de Firebase/Auth sem estar realmente offline.
+    // Só exibe aviso offline quando o navegador reporta ausência de conexão.
+    if (navigator && navigator.onLine === false) {
+      toast('⚠️ Modo offline — dados locais','warn', 5000);
+    }
   }
 
   splash.remove();
