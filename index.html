@@ -211,7 +211,12 @@ async function prefetchTodosUsuarios() {
 // ============================================================
 async function ensureAuth() {
   if (auth.currentUser) return;
-  try { await auth.signInAnonymously(); } catch(e) { console.warn('auth:', e.message); }
+  try {
+    await auth.signInAnonymously();
+  } catch(e) {
+    console.warn('auth:', e.message);
+    throw new Error('Falha na autenticação com o servidor. Verifique as regras do Firebase Auth/RTDB.');
+  }
 }
 
 // ============================================================
@@ -1687,16 +1692,12 @@ async function fazerLogin() {
 
     // Buscar perfil do RTDB
     let perfil = null;
-    // Verifica se o usr contém caracteres inválidos para path do RTDB (email, pontos, etc.)
-    const usrTemCaracteresInvalidos = /[.#$\[\]@]/.test(usr);
-    if (!usrTemCaracteresInvalidos) {
-      // Tenta pelo login direto (username simples)
-      const snapDireto = await rtdb.ref('usuarios/'+usr).get();
-      if (snapDireto.exists()) {
-        perfil = snapDireto.val();
-        _cache['usuario_'+usr] = perfil;
-        try { localStorage.setItem('usuario_'+usr, JSON.stringify(perfil)); } catch {}
-      }
+    // Tenta pelo login direto com chave sanitizada (suporta username/email como usuário)
+    const snapDireto = await rtdb.ref('usuarios/'+_sanitizeKey(usr)).get();
+    if (snapDireto.exists()) {
+      perfil = snapDireto.val();
+      _cache['usuario_'+(perfil?.usuario || usr)] = perfil;
+      try { localStorage.setItem('usuario_'+(perfil?.usuario || usr), JSON.stringify(perfil)); } catch {}
     }
     if (!perfil) {
       // Busca por email ou username não encontrado — faz prefetch de todos e filtra
@@ -3893,7 +3894,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         return;
       }
       // Buscar perfil atualizado do RTDB
-      const snapPerfil = await rtdb.ref('usuarios/'+sessao.usuario).get();
+      const snapPerfil = await rtdb.ref('usuarios/'+_sanitizeKey(sessao.usuario)).get();
       if (snapPerfil.exists()) {
         usuarioLogado = snapPerfil.val();
         _cache['usuario_'+sessao.usuario] = usuarioLogado;
